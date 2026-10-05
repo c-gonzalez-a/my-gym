@@ -169,9 +169,9 @@ const IC={gym:I('<path d="M6 7v10M3 9.5v5M18 7v10M21 9.5v5M6 12h12"/>'),
  tape:I('<circle cx="9" cy="10" r="6"/><circle cx="9" cy="10" r="1.6"/><path d="M14 14l7 2.5V21H7"/><path d="M12 21v-2M15.5 21v-2M19 21v-2"/>'),
  warn:I('<path d="M12 4v10M12 19.5v.5" stroke-width="3.5"/>'),
  food:I('<path d="M6 3v5a3 3 0 0 0 6 0V3M9 3v7M9 11v10"/>'),
- home:I('<path d="M3 11l9-8 9 8M5 9.5V20h14V9.5"/>'),chk:I('<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/>'),plus:I('<path d="M12 5v14M5 12h14"/>'),
+ home:I('<path d="M3 11l9-8 9 8M5 9.5V20h14V9.5"/>'),chk:I('<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/>'),grid:I('<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1" fill="#ff4fa3"/>'),plus:I('<path d="M12 5v14M5 12h14"/>'),
  paste:I('<rect x="6" y="5" width="12" height="16" rx="2"/><path d="M9 5V3h6v2M9 11h6M9 15h6"/>'),gear:I('<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>')};
-const B={home:[['chk','Hoy',()=>hoy()],['gym','Gym',()=>go('gym')],['food','Alimentación',()=>go('food')],['tape','Control',()=>go('ctl')]],
+const B={home:[['chk','Hoy',()=>hoy()],['gym','Gym',()=>go('gym')],['food','Alimentación',()=>go('food')],['tape','Control',()=>go('ctl')],['grid','Cumplimiento',()=>cumpl()]],
  gym:[['gym','Rutina de hoy',()=>today()],['stats','Stats',()=>stats()],['gear','Gestionar',manage],['home','Inicio',()=>go('home')]],
  food:[['plus','Cargar día',foodForm],['paste','Pegar de Gemini',foodPaste],['stats','Seguimiento',()=>foodStats()],['home','Inicio',()=>go('home')]],
  ctl:[['tape','Cargar medidas',body],['stats','Evolución',chart],['home','Inicio',()=>go('home')]]};
@@ -182,19 +182,26 @@ function bar(s){const el=$('#bar');el.innerHTML='';B[s].forEach(([ic,l,f])=>{con
 function go(s){sec=s;bar(s);bot(HI[s])}
 
 /* ---- hoy ---- */
-function hoy(){const d=new Date().getDay(),pl=S.plan[d]||{items:[],max:0},k=iso(),fd=S.food.find(x=>x.d==k),box=bot('');
+function hoy(){const d=new Date().getDay(),pl=S.plan[d]||{items:[],max:0},fd=S.food.find(x=>x.d==iso());
+ bot('<b>Hoy · '+D[d]+'</b><br>'+(pl.items.map(t=>'• '+esc(t)).join('<br>')||'<small>Sin plan cargado</small>')+(pl.max?'<br><small>Tope del día: '+pl.max+' kcal'+(fd?' · comido '+fd.kcal:'')+'</small>':''));
+ opts((S.rt.some(r=>r.day==d)?[['Empezar rutina de gym',()=>today()]]:[]).concat([['Checklist',checklist]]))}
+function checklist(){const k=iso(),box=bot('');
  const draw=()=>{const L=S.chkLog[k]=S.chkLog[k]||{};
-  box.innerHTML='<b>Hoy · '+D[d]+'</b><br>'+(pl.items.map(t=>'• '+esc(t)).join('<br>')||'<small>Sin plan cargado</small>')
-   +(pl.max?'<br><small>Tope del día: '+pl.max+' kcal'+(fd?' · comido '+fd.kcal:'')+'</small>':'')
-   +'<br><br><b>Checklist</b> <small>'+S.chk.filter(c=>L[c.id]).length+' de '+S.chk.length+' (opcional)</small><div class="o" style="margin-top:8px"></div>';
+  box.innerHTML='<b>Checklist</b> <small>'+S.chk.filter(c=>L[c.id]).length+' de '+S.chk.length+' · opcional</small><div class="o" style="margin-top:8px"></div>';
   S.chk.forEach(c=>{btns(box,[[(L[c.id]?'✓ ':'')+c.t,()=>{L[c.id]=!L[c.id];save();draw()}]]);
    if(L[c.id]){const b=box.querySelector('.o').lastChild;b.style.background='var(--me)';b.style.color='#fff'}})};
- box.style.width='94%';draw();
- opts((S.rt.some(r=>r.day==d)?[['Empezar rutina de gym',()=>today()]]:[]).concat([['Cumplimiento',()=>chkStats()]]))}
-function chkStats(N=7){const days=[...Array(N)].map((_,i)=>{const t=new Date();t.setDate(t.getDate()-i);return iso(t)}),has=(k,c)=>(S.chkLog[k]||{})[c.id];
- const tot=days.reduce((a,k)=>a+S.chk.filter(c=>has(k,c)).length,0),pc=S.chk.length?Math.round(tot/(N*S.chk.length)*100):0;
- bot('<b>Cumplimiento · últimos '+N+' días</b><br><small>General: '+pc+'%</small><br><br>'+S.chk.map(c=>'• '+esc(c.t)+': <b>'+days.filter(k=>has(k,c)).length+'/'+N+'</b>').join('<br>'));
- opts([['7 días',()=>chkStats(7)],['30 días',()=>chkStats(30)]])}
+ box.style.width='94%';draw()}
+const MS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function cumpl(m='w',off=0){const t=new Date();t.setHours(12);let days,ttl;
+ if(m=='w'){t.setDate(t.getDate()-(t.getDay()+6)%7+off*7);days=[...Array(7)].map((_,i)=>{const x=new Date(t);x.setDate(x.getDate()+i);return x});ttl='Semana del '+days[0].getDate()+'/'+(days[0].getMonth()+1)}
+ else{t.setDate(1);t.setMonth(t.getMonth()+off);const n=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();days=[...Array(n)].map((_,i)=>new Date(t.getFullYear(),t.getMonth(),i+1,12));ttl=MS[t.getMonth()]+' '+t.getFullYear()}
+ const td=iso(),ks=days.map(x=>iso(x)),el=ks.filter(k=>k<=td).length,on=(k,c)=>(S.chkLog[k]||{})[c.id],tot=S.chk.reduce((a,c)=>a+ks.filter(k=>on(k,c)).length,0);
+ const st='display:grid;gap:2px;grid-template-columns:repeat('+ks.length+',1fr)'+(m=='w'?';max-width:300px':'');
+ const head='<div style="'+st+';font-size:8px;color:#a98ca2;text-align:center;margin-top:8px">'+days.map((x,i)=>'<span>'+(m=='w'?'LMXJVSD'[i]:(x.getDate()==1||x.getDate()%5==0?x.getDate():''))+'</span>').join('')+'</div>';
+ const row=c=>'<div style="margin:10px 0 3px"><b>'+esc(c.t)+'</b> <small>'+ks.filter(k=>on(k,c)).length+' de '+el+'</small></div><div style="'+st+'">'
+  +ks.map(k=>'<i style="aspect-ratio:1;border-radius:3px;background:'+(on(k,c)?'#ff4fa3':'#2d1a35')+(k==td?';outline:1.5px solid #f7ebf3':'')+(k>td?';opacity:.4':'')+'"></i>').join('')+'</div>';
+ bot('<b>'+ttl+'</b><br><small>Cumplimiento general: '+(el&&S.chk.length?Math.round(tot/(el*S.chk.length)*100):0)+'%</small>'+head+S.chk.map(row).join('')).style.width='96%';
+ opts([[m=='w'?'Ver mes':'Ver semana',()=>cumpl(m=='w'?'m':'w')],['‹ Anterior',()=>cumpl(m,off-1)]].concat(off<0?[['Siguiente ›',()=>cumpl(m,off+1)]]:[]))}
 function planDay(d){const p=S.plan[d]=S.plan[d]||{items:[],max:0},done=()=>{save();planDay(d)};
  bot('<b>'+D[d]+'</b><br>'+(p.items.map(t=>'• '+esc(t)).join('<br>')||'Sin actividades')+'<br><small>Tope: '+(p.max||'sin límite')+' kcal</small>');
  opts([['Agregar actividad',()=>{const t=prompt('Actividad');if(t){p.items.push(t.trim());done()}}],['Quitar',()=>pick('¿Cuál?',p.items.map((t,i)=>[t,i]),i=>{p.items.splice(i,1);done()})],
