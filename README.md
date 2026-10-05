@@ -4,6 +4,10 @@ App personal para llevar rutinas de gimnasio, alimentación y medidas del cuerpo
 
 ## Qué hace
 
+**Hoy**
+- Al abrir la app ves el plan del día (gym, cardio, caminatas, pileta) con su tope de kcal, editable por día desde Gestionar.
+- Checklist diario opcional y editable, con cumplimiento de los últimos 7 y 30 días.
+
 **Gym**
 - Detecta el día y te da la rutina que corresponde. Si hay dos rutinas para el mismo día, las alterna semana a semana.
 - Elegís con botones por qué ejercicio arrancar y ves series, reps y peso.
