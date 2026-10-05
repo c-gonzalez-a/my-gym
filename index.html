@@ -22,6 +22,7 @@ button:active{background:var(--ac);color:#000}
 #bar button{white-space:nowrap;display:inline-flex;align-items:center;gap:6px;flex:none;background:var(--card);border-color:var(--fu)}
 input{font:inherit;background:#120a17;color:var(--tx);border:1px solid #42284d;border-radius:8px;padding:6px;width:78px;margin:2px 0}
 .kp{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}.kp div{background:#120a17;border-radius:10px;padding:8px}.kp b{display:block;font-size:19px;color:var(--ac)}
+.ck{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--ln);cursor:pointer}.ck input{width:22px;height:22px;padding:0;margin:0;accent-color:var(--ac);flex:none}
 small{color:var(--mu)}
 .f{display:flex;align-items:center;gap:10px;margin:6px 0}.f span{width:112px}.f input{flex:1;width:auto;min-width:0;padding:9px}
 </style></head><body>
@@ -185,12 +186,11 @@ function go(s){sec=s;bar(s);bot(HI[s])}
 function hoy(){const d=new Date().getDay(),pl=S.plan[d]||{items:[],max:0},fd=S.food.find(x=>x.d==iso());
  bot('<b>Hoy · '+D[d]+'</b><br>'+(pl.items.map(t=>'• '+esc(t)).join('<br>')||'<small>Sin plan cargado</small>')+(pl.max?'<br><small>Tope del día: '+pl.max+' kcal'+(fd?' · comido '+fd.kcal:'')+'</small>':''));
  opts((S.rt.some(r=>r.day==d)?[['Empezar rutina de gym',()=>today()]]:[]).concat([['Checklist',checklist]]))}
-function checklist(){const k=iso(),box=bot('');
- const draw=()=>{const L=S.chkLog[k]=S.chkLog[k]||{};
-  box.innerHTML='<b>Checklist</b> <small>'+S.chk.filter(c=>L[c.id]).length+' de '+S.chk.length+' · opcional</small><div class="o" style="margin-top:8px"></div>';
-  S.chk.forEach(c=>{btns(box,[[(L[c.id]?'✓ ':'')+c.t,()=>{L[c.id]=!L[c.id];save();draw()}]]);
-   if(L[c.id]){const b=box.querySelector('.o').lastChild;b.style.background='var(--me)';b.style.color='#fff'}})};
- box.style.width='94%';draw()}
+function checklist(){const k=iso(),L=S.chkLog[k]=S.chkLog[k]||{},box=bot('');
+ box.innerHTML='<b>Checklist</b> <small></small>'+S.chk.map(c=>'<label class="ck"><input type="checkbox" data-id="'+c.id+'"'+(L[c.id]?' checked':'')+'><span>'+esc(c.t)+'</span></label>').join('');
+ const upd=()=>box.querySelector('small').textContent=S.chk.filter(c=>L[c.id]).length+' de '+S.chk.length+' · opcional';
+ box.querySelectorAll('input').forEach(i=>i.onchange=()=>{L[i.dataset.id]=i.checked;save();upd()});
+ box.style.width='94%';upd()}
 const MS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 function cumpl(m='w',off=0){const t=new Date();t.setHours(12);let days,ttl;
  if(m=='w'){t.setDate(t.getDate()-(t.getDay()+6)%7+off*7);days=[...Array(7)].map((_,i)=>{const x=new Date(t);x.setDate(x.getDate()+i);return x});ttl='Semana del '+days[0].getDate()+'/'+(days[0].getMonth()+1)}
