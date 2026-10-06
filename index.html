@@ -44,11 +44,11 @@ function seed(){let n=0;const ex=[],rt=[];
  const c=E('Algo para el costado','glúteo','kg',['0'],['10']);
  R(54,'Glúteo y cuádriceps',5,[E('Prensa de piernas pies altos','cuádriceps','kg',['90','110','110','110'],['10','10','10','fallo']),E('Búlgara en smith','cuádriceps','kg',['10','10','15'],['8','8','fallo (7)']),E('Hip thrust máquina (10 – sostengo 10 – 10)','glúteo','kg',['15','20','25'],['10','10','fallo (10)']),E('Sillón de cuádriceps','cuádriceps','ladrillos',['4','5','6','dropset'],['12','10','8','7-5']),c,E('Patada de glúteo','glúteo','ladrillos',['3','3','4'],['12'])],[c]);
  return{ex,rt,hist:[],body:[],n:100}}
-function seedChk(){return['Ir al gym','Tomar 2,5 litros de agua','No comer carbos complejos','No comer azúcares agregados','No pasar el límite de kcal del día','Hacer todo el cardio del día'].map((t,i)=>({id:'c'+i,t}))}
+function seedChk(){return['Ir al gym','Tomar 2,5 litros de agua','No comer carbos simples','No comer azúcares agregados','No pasar el límite de kcal del día','Hacer todo el cardio del día'].map((t,i)=>({id:'c'+i,t}))}
 function seedPlan(){const P=(max,...items)=>({max,items});return{0:P(1045,'Cardio y core en casa (~350 kcal)'),1:P(1225,'Cardio: salto de soga 22 min (40 s activos, 20 s pausa)','Gym: glúteo y femoral'),
  2:P(1350,'Gym a la tarde: brazos, pecho y core','Post gym: caminata de 30 min (~250 kcal)'),3:P(1045,'Salto de soga + cardio de YouTube (meta ~350 kcal en las sesiones de cardio en casa)'),
  4:P(1290,'Día libre, sin entrenamiento'),5:P(1130,'Ir caminando al gym','Gym: glúteo y cuádriceps'),6:P(1440,'Caminar al gym','Gym: espalda y core','Volver caminando a casa','Pileta 2 h')}}
-const mig=d=>{d.food=d.food||[];d.plan=d.plan||seedPlan();d.chk=d.chk||seedChk();d.chkLog=d.chkLog||{};d.ex.forEach(e=>{if(!e.ms){e.ms=[e.m||'otro'];delete e.m;if(/sentadilla.*hack/i.test(e.name)&&!e.ms.includes('glúteo'))e.ms.push('glúteo')}});return d};
+const mig=d=>{d.food=d.food||[];d.plan=d.plan||seedPlan();d.chk=d.chk||seedChk();d.chkLog=d.chkLog||{};d.chk.forEach(c=>{if(/carbos?\s+complejos?/i.test(c.t))c.t='No comer carbos simples'});d.ex.forEach(e=>{if(!e.ms){e.ms=[e.m||'otro'];delete e.m;if(/sentadilla.*hack/i.test(e.name)&&!e.ms.includes('glúteo'))e.ms.push('glúteo')}});return d};
 let S;try{S=JSON.parse(localStorage.getItem(K))}catch{}S=mig(S||seed());
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch{}};save();
 const X=id=>S.ex.find(e=>e.id==id);
@@ -67,7 +67,11 @@ function today(i){const day=new Date().getDay(),c=S.rt.filter(r=>r.day==day);
  if(!c.length){bot('Hoy ('+D[day]+') no tenés rutina cargada. ¿Hacés otra?');return opts(S.rt.map(r=>[D[r.day]+' · '+r.name,()=>start(r)]))}
  const wk=Math.floor((Date.now()/864e5+3)/7),k=(((i??wk)%c.length)+c.length)%c.length;
  start(c[k],c.length>1?()=>today(k+1):null)}
-function start(r,alt){cur={r,alt,sel:new Set(),done:new Set(),seen:new Set(),nt:{}};
+function start(r,alt,fresh){const pg=S.prog;
+ if(!fresh&&pg&&pg.d==iso()&&pg.r==r.id){const ok=x=>X(x),sel=pg.sel.filter(ok),dn=pg.done.filter(i=>sel.includes(i));
+  if(dn.length&&sel.some(i=>!dn.includes(i))){bot('Ya habías empezado <b>'+esc(r.name)+'</b> hoy: hiciste '+dn.length+' de '+sel.length+'. ¿Seguimos donde estabas?');
+   return opts([['▶ Seguir',()=>{cur={r,alt,sel:new Set(sel),done:new Set(dn),seen:new Set(),nt:{}};menu()}],['🔄 Empezar de cero',()=>start(r,alt,1)]])}}
+ cur={r,alt,sel:new Set(),done:new Set(),seen:new Set(),nt:{}};
  const a1=(it,f)=>{const e=X(it.e);if(f||(cur.sel.size<r.need&&!over(e)))cur.sel.add(e.id)};
  r.items.filter(i=>!i.opt).forEach(i=>a1(i,1));r.items.filter(i=>i.opt).forEach(i=>a1(i));
  bot('Rutina de '+D[r.day]+' 💖<br><b>'+esc(r.name)+'</b>');
@@ -85,14 +89,24 @@ function plan(){const r=cur.r,box=bot('');
     draw()}]])});
   btns(box,[['Listo ▶',()=>{box.querySelector('.o').remove();menu()}]])};
  draw()}
-function menu(){const p=[...cur.sel].filter(i=>!cur.done.has(i)).map(X);
- if(!p.length){bot('¡Rutina terminada! 🔥 Hiciste '+cur.done.size+' ejercicios.');return opts([['➕ Agregar otro ejercicio',addEx]])}
+function persist(){if(cur){S.prog={d:iso(),r:cur.r.id,sel:[...cur.sel],done:[...cur.done]};save()}}
+function finish(){const p=[...cur.sel].filter(i=>!cur.done.has(i));
+ if(p.length&&!confirm('Te quedan '+p.length+' ejercicio(s) sin hacer. ¿Terminar igual?'))return menu();
+ const c=S.chk.find(c=>/ir al gym/i.test(c.t))||S.chk.find(c=>/gym/i.test(c.t)),k=iso();let m='';
+ if(c){const L=S.chkLog[k]=S.chkLog[k]||{};L[c.id]=true;m='<br><small>Marqué "'+esc(c.t)+'" en tu checklist ✅</small>'}
+ S.prog=null;save();bot('¡Rutina terminada! 🔥 Hiciste '+cur.done.size+' ejercicio(s).'+m);
+ opts([['Ver checklist',()=>checklist()]])}
+function removeEx(){const p=[...cur.sel].filter(i=>!cur.done.has(i)).map(X);
+ pick('¿Cuál sacás?',p.map(e=>[e.name,e]),e=>{bot('<b>'+esc(e.name)+'</b>: ¿solo por hoy o lo sacás de la rutina?');
+  opts([['Solo por hoy',()=>{cur.sel.delete(e.id);menu()}],['Sacarlo de la rutina',()=>{cur.sel.delete(e.id);const r=cur.r;r.items=r.items.filter(i=>i.e!=e.id);r.need=Math.min(r.need,r.items.length);save();bot('Sacado de la rutina ✅');menu()}],['Cancelar',menu]])})}
+function menu(){persist();const p=[...cur.sel].filter(i=>!cur.done.has(i)).map(X);
+ if(!p.length){bot('¡Ya hiciste todos los ejercicios! 🔥 ('+cur.done.size+')');return opts([['🏁 Terminar rutina',finish],['➕ Agregar otro ejercicio',addEx]])}
  bot(cur.done.size?'¿Con cuál seguís?':'¿Con qué ejercicio arrancás?');
- opts(p.map(e=>[e.name+(e.note?' 🔔':''),()=>show(e)]).concat([['➕ Agregar ejercicio',addEx]],cur.alt?[['↔️ Otra rutina',cur.alt]]:[]))}
+ opts(p.map(e=>[e.name+(e.note?' 🔔':''),()=>show(e)]).concat([['➕ Agregar ejercicio',addEx],['➖ Sacar ejercicio',removeEx],['🏁 Terminar rutina',finish]],cur.alt?[['↔️ Otra rutina',cur.alt]]:[]))}
 function show(e){if(!cur.seen.has(e.id)){cur.seen.add(e.id);if(e.note){cur.nt[e.id]=e.note;e.note='';save()}}const n=cur.nt[e.id],f=s=>s.w+(isNaN(num(s.w))?'':' '+e.u)+' × '+s.r;
  bot('<b>'+esc(e.name)+'</b> <small>('+esc(e.ms.join(' · '))+')</small><br>'+e.s.map((s,i)=>'S'+(i+1)+': '+esc(f(s))).join('<br>')+(n?'<br>🔔 <i>'+esc(n)+'</i>':''));
  opts([['✅ Igual que siempre',()=>{log(e);bot('Anotado ✅');menu()}],
-  ['✏️ Cambié algo',()=>edit(e,rows=>{const up=rows.some((s,i)=>e.s[i]&&num(s.w)>num(e.s[i].w));e.s=rows;log(e);bot('Anotado ✅'+(up?' ¡Subiste peso! 🚀':''));menu()})],
+  ['✏️ Cambié algo',()=>edit(e,rows=>{const o=e.s,up=rows.length==o.length&&rows.some((s,i)=>num(s.w)>num(o[i].w))&&rows.every((s,i)=>!(num(s.w)<num(o[i].w)));e.s=rows;log(e);bot('Cambio anotado ✅'+(up?' ¡Subiste peso! 🚀':''));menu()})],
   ['📝 Nota para la próxima',()=>{const t=prompt('Nota para la próxima vez (vacío para borrarla):',e.note||'⬆ Subir peso');if(t!==null){e.note=t.trim();save()}show(e)}],
   ['🔁 Alternativa / no puedo',()=>alt(e)]])}
 function alt(e){const a=S.ex.filter(x=>x.ms.some(z=>e.ms.includes(z))&&!cur.sel.has(x.id));
@@ -112,7 +126,8 @@ function log(e){S.hist.push({d:iso(),e:e.id,r:cur?cur.r.id:0,s:e.s.map(s=>({...s
 function edit(e,cb){const rows=e.s.map(s=>({...s})),box=bot('');
  const draw=()=>{box.innerHTML='<b>'+esc(e.name)+'</b> · peso y reps'+rows.map((s,i)=>'<div>S'+(i+1)+' <input data-i="'+i+'" data-k="w" value="'+esc(s.w)+'"> × <input data-i="'+i+'" data-k="r" value="'+esc(s.r)+'"></div>').join('')+'<div class="o" style="margin-top:8px"></div>';
   box.querySelectorAll('input').forEach(x=>x.oninput=()=>rows[x.dataset.i][x.dataset.k]=x.value);
-  btns(box,[['+ serie',()=>{rows.push({...rows[rows.length-1]});draw()}],['− serie',()=>{if(rows.length>1)rows.pop();draw()}],['Guardar ✔',()=>{box.querySelector('.o').remove();cb(rows)}]])};
+  btns(box,[['+ serie',()=>{rows.push({...rows[rows.length-1]});draw()}],['− serie',()=>{if(rows.length>1)rows.pop();draw()}],['📝 Nota',()=>{const t=prompt('Nota para la próxima vez (vacío para borrarla):',e.note||'⬆ Subir peso');if(t!==null){e.note=t.trim();save();bot(e.note?'Nota guardada 🔔':'Nota borrada')}}],
+  ['Guardar ✔',()=>{box.innerHTML='<b>'+esc(e.name)+'</b> · peso y reps'+rows.map((s,i)=>'<div>S'+(i+1)+': '+esc(s.w)+' × '+esc(s.r)+'</div>').join('');cb(rows)}]])};
  draw()}
 
 /* ---- stats ---- */
@@ -154,7 +169,7 @@ function rts(){pick('Rutinas:',S.rt.map(r=>[D[r.day]+' · '+r.name,r]).concat([[
  dayPick('¿Qué día?',day=>{const n={id:++S.n,name,day,need:0,items:[]};S.rt.push(n);save();rtMenu(n)})})}
 function rtMenu(r){const done=()=>{save();rtMenu(r)};
  bot('<b>'+esc(r.name)+'</b> · '+D[r.day]+'<br><small>Hacés '+r.need+' de '+r.items.length+'</small><br>'+(r.items.map(i=>'• '+esc(X(i.e).name)+(i.opt?' (opc.)':'')).join('<br>')||'Sin ejercicios todavía.'));
- opts([['➕ Agregar ejercicio',()=>pick('¿Cuál?',S.ex.filter(x=>!r.items.some(i=>i.e==x.id)).map(x=>[x.name+' ('+x.m+')',x]),x=>{const full=r.need>=r.items.length;r.items.push({e:x.id,opt:confirm('¿Es opcional?')});if(full)r.need++;done()})],
+ opts([['➕ Agregar ejercicio',()=>pick('¿Cuál?',S.ex.filter(x=>!r.items.some(i=>i.e==x.id)).map(x=>[x.name+' ('+x.ms.join(', ')+')',x]),x=>{const full=r.need>=r.items.length;r.items.push({e:x.id,opt:confirm('¿Es opcional?')});if(full)r.need++;done()})],
   ['➖ Quitar',()=>pick('¿Cuál?',r.items.map(i=>[X(i.e).name,i]),i=>{r.items=r.items.filter(z=>z!=i);r.need=Math.min(r.need,r.items.length);done()})],
   ['🔀 Opcional sí/no',()=>pick('¿Cuál?',r.items.map(i=>[X(i.e).name+(i.opt?' (opc.)':''),i]),i=>{i.opt=!i.opt;done()})],
   ['🔢 Cuántos hacés',()=>{const n=+prompt('Cantidad a hacer (máx '+r.items.length+')',r.need);if(n>0){r.need=Math.min(n,r.items.length);done()}}],
@@ -185,12 +200,14 @@ function go(s){sec=s;bar(s);bot(HI[s])}
 /* ---- hoy ---- */
 function hoy(){const d=new Date().getDay(),pl=S.plan[d]||{items:[],max:0},fd=S.food.find(x=>x.d==iso());
  bot('<b>Hoy · '+D[d]+'</b><br>'+(pl.items.map(t=>'• '+esc(t)).join('<br>')||'<small>Sin plan cargado</small>')+(pl.max?'<br><small>Tope del día: '+pl.max+' kcal'+(fd?' · comido '+fd.kcal:'')+'</small>':''));
- opts((S.rt.some(r=>r.day==d)?[['Empezar rutina de gym',()=>today()]]:[]).concat([['Checklist',checklist]]))}
-function checklist(){const k=iso(),L=S.chkLog[k]=S.chkLog[k]||{},box=bot('');
- box.innerHTML='<b>Checklist</b> <small></small>'+S.chk.map(c=>'<label class="ck"><input type="checkbox" data-id="'+c.id+'"'+(L[c.id]?' checked':'')+'><span>'+esc(c.t)+'</span></label>').join('');
+ opts((S.rt.some(r=>r.day==d)?[['Empezar rutina de gym',()=>today()]]:[]).concat([['Checklist de hoy',()=>checklist()],['Checklist de ayer',()=>checklist(ago(1))]]))}
+function ago(n){const t=new Date();t.setDate(t.getDate()-n);return iso(t)}
+function checklist(k){k=k||iso();const L=S.chkLog[k]||{},box=bot('');
+ box.innerHTML='<b>Checklist de '+(k==iso()?'hoy':k==ago(1)?'ayer':k)+'</b> <small></small>'+S.chk.map(c=>'<label class="ck"><input type="checkbox" data-id="'+c.id+'"'+(L[c.id]?' checked':'')+'><span>'+esc(c.t)+'</span></label>').join('');
  const upd=()=>box.querySelector('small').textContent=S.chk.filter(c=>L[c.id]).length+' de '+S.chk.length+' · opcional';
- box.querySelectorAll('input').forEach(i=>i.onchange=()=>{L[i.dataset.id]=i.checked;save();upd()});
- box.style.width='94%';upd()}
+ box.querySelectorAll('input').forEach(i=>i.onchange=()=>{L[i.dataset.id]=i.checked;S.chkLog[k]=L;save();upd()});
+ box.style.width='94%';upd();
+ opts([[k==iso()?'Ver el de ayer':'Ver el de hoy',()=>checklist(k==iso()?ago(1):iso())]])}
 const MS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 function cumpl(m='w',off=0){const t=new Date();t.setHours(12);let days,ttl;
  if(m=='w'){t.setDate(t.getDate()-(t.getDay()+6)%7+off*7);days=[...Array(7)].map((_,i)=>{const x=new Date(t);x.setDate(x.getDate()+i);return x});ttl='Semana del '+days[0].getDate()+'/'+(days[0].getMonth()+1)}
