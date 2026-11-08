@@ -1,4 +1,4 @@
-/* Mi Gym 2.0 — vanilla JavaScript, no account, no server. */
+/* Mi Gym 2.1 — vanilla JavaScript, no account, no server. */
 'use strict';
 const KEY='migym-v2', LEGACY_KEY='gymapp1', D=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 const BF=['cintura','cadera','brazo','pierna','pecho'], CAP=3;
@@ -35,6 +35,14 @@ function normalFood(r,st){
  const n=x=>asNumber(x),k=n(r.kcal),burn=n(r.burn??r.gasto),p=n(r.p??r.prot),c=n(r.c??r.carb),g=n(r.g??r.grasa);
  return {d:r.d||r.fecha,stageId:r.stageId||st,kcal:k,p,c,g,burn:burn>0?burn:null,estimate:r.estimate!==false,notes:r.notes||''};
 }
+// Profile is independent from tracking stages and is always optional.
+function normalizeProfile(raw){
+ const r=raw&&typeof raw==='object'?raw:{};
+ const heightCm=asNumber(r.heightCm);
+ return {heightCm:heightCm!==null&&heightCm>=100&&heightCm<=230?heightCm:null,
+  birthDate:validDate(r.birthDate)&&r.birthDate<=iso()?r.birthDate:'',
+  formula:['female','male'].includes(r.formula)?r.formula:''};
+}
 function normalizeLegacy(raw){
  const defaults=seed(), s=raw&&typeof raw==='object'?raw:{};
  const oldEntries=[...(s.hist||[]),...(s.food||[]),...(s.body||[])].map(x=>x.d).filter(validDate).sort();
@@ -44,7 +52,7 @@ function normalizeLegacy(raw){
  const chkLog={};Object.entries(s.chkLog||{}).forEach(([d,values])=>{if(validDate(d))chkLog[sid+'|'+d]=values});
  const ex=Array.isArray(s.ex)?s.ex:defaults.ex;
  ex.forEach(x=>{if(!Array.isArray(x.ms))x.ms=[x.m||'otro'];if(!Array.isArray(x.s))x.s=[];x.note=x.note||'';x.u=x.u||'kg'});
- return {version:2,theme:'auto',ex,rt:Array.isArray(s.rt)?s.rt:defaults.rt,plan:s.plan||seedPlan(),chk:Array.isArray(s.chk)?s.chk:seedChk(),chkLog,
+ return {version:2,theme:'auto',profile:normalizeProfile(s.profile),ex,rt:Array.isArray(s.rt)?s.rt:defaults.rt,plan:s.plan||seedPlan(),chk:Array.isArray(s.chk)?s.chk:seedChk(),chkLog,
   n:Math.max(Number(s.n)||100,110),stages:[{id:sid,name:'Etapa inicial',start:first,archivedAt:null,baseWeight:initialWeight,checkpoints:[],targetNote:''}],activeId:sid,
   hist:(s.hist||[]).filter(x=>validDate(x.d)).map(x=>({...x,stageId:sid})),
   food:(s.food||[]).filter(x=>validDate(x.d)).map(x=>normalFood(x,sid)),
@@ -54,7 +62,7 @@ function validateLoaded(obj){
  if(!obj||typeof obj!=='object')throw Error('El archivo no contiene datos válidos');
  if(obj.version===2){
   if(!Array.isArray(obj.stages)||!Array.isArray(obj.ex)||!Array.isArray(obj.rt)||!Array.isArray(obj.hist)||!Array.isArray(obj.food)||!Array.isArray(obj.body)||!Array.isArray(obj.chk)||!obj.stages.some(s=>s.id===obj.activeId))throw Error('El backup v2 está incompleto');
-  return {...obj,plan:obj.plan||seedPlan(),chkLog:obj.chkLog||{},prog:obj.prog||null,n:obj.n||100,theme:['auto','dark','light'].includes(obj.theme)?obj.theme:'auto'};
+  return {...obj,profile:normalizeProfile(obj.profile),plan:obj.plan||seedPlan(),chkLog:obj.chkLog||{},prog:obj.prog||null,n:obj.n||100,theme:['auto','dark','light'].includes(obj.theme)?obj.theme:'auto'};
  }
  if(Array.isArray(obj.ex)&&Array.isArray(obj.rt))return normalizeLegacy(obj);
  throw Error('No es un backup de Mi Gym');
@@ -103,6 +111,27 @@ function measureDue(){
  const startPeriod=today.slice(0,8)+(Number(today.slice(8))>=15?'15':'01');
  const periodStart=start>startPeriod?start:startPeriod;
  return !rec('body').some(x=>x.kg!==null&&x.kg!==undefined&&x.d>=periodStart);
+}
+// The BMI needs only mass and height. The Mifflin-St Jeor estimate also
+// requires adult age and an explicitly chosen reference coefficient.
+function ageOn(birthDate,atDate){
+ if(!validDate(birthDate)||!validDate(atDate))return null;
+ const b=localDate(birthDate),now=localDate(atDate);
+ let age=now.getFullYear()-b.getFullYear();
+ if(now.getMonth()<b.getMonth()||(now.getMonth()===b.getMonth()&&now.getDate()<b.getDate()))age--;
+ return age>=0&&age<=120?age:null;
+}
+function metabolicMetrics(){
+ const profile=normalizeProfile(S.profile),weight=lastBody()?.kg??stage().baseWeight;
+ const validWeight=Number.isFinite(weight)&&weight>=20&&weight<=500;
+ const validHeight=Number.isFinite(profile.heightCm);
+ const bmi=validWeight&&validHeight?weight/((profile.heightCm/100)**2):null;
+ const age=ageOn(profile.birthDate,stageEnd());
+ const tmb=validWeight&&validHeight&&age!==null&&age>=20&&profile.formula
+  ?10*weight+6.25*profile.heightCm-5*age+(profile.formula==='male'?5:-161):null;
+ const needsBMI=[...(!validWeight?['peso']:[]),...(!validHeight?['estatura']:[])];
+ const needsTMB=[...needsBMI,...(!profile.birthDate?['fecha de nacimiento']:age===null?['edad válida para esta etapa']:age<20?['edad de 20 años o más']:[]),...(!profile.formula?['parámetro de fórmula']:[])];
+ return {bmi,tmb,age,weight,needsBMI,needsTMB,profile,source:lastBody()?'Último pesaje':validWeight?'Peso inicial de la etapa':'Sin peso'};
 }
 function alertCount(){return (editing()&&milestones().length?1:0)+(measureDue()?1:0)}
 function saveFood(obj){
@@ -269,7 +298,7 @@ function navIcon(type){
  return `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[type]||paths.home}</svg>`;
 }
 function navHtml(mobile=false){
- return NAV.map(([id,icon,label])=>`<button class="${mobile?'':'nav-link '}${ui.page===id?'active':''}" data-action="nav" data-page="${id}" aria-label="${label}"><span class="nav-icon">${navIcon(icon)}</span>${mobile?`<span>${label}</span>`:`<span>${label}</span>`}${id==='progreso'&&editing()&&alertCount()?'<span class="badge-count">!</span>':''}</button>`).join('');
+ return NAV.map(([id,icon,label])=>{const pending=id==='progreso'&&editing()&&alertCount()>0;return `<button class="${mobile?'':'nav-link '}${ui.page===id?'active':''}" data-action="nav" data-page="${id}" aria-label="${label}${pending?' (control pendiente)':''}"><span class="nav-icon">${navIcon(icon)}${pending?'<span class="nav-alert-dot" aria-hidden="true"></span>':''}</span><span>${label}</span></button>`}).join('');
 }
 function header(){const st=stage();return `<div class="topbar"><div><div class="eyebrow">MI GYM · PERSONAL</div><div class="row" style="margin-top:4px"><strong>Tu espacio, a tu ritmo</strong><span style="font-size:16px">💗</span></div></div><div class="topbar-right"><span class="pill neutral">${escapeHtml(st.name)}${!editing()?' · archivada':''}</span><button class="btn sm ghost" data-action="theme-cycle" title="Cambiar tema" aria-label="Cambiar tema">${S.theme==='light'?'☀️':S.theme==='dark'?'🌙':'◐'}</button></div></div>`}
 function render(){
@@ -332,11 +361,19 @@ function checkpointStatus(){
  ${cks.length?`<div class="table-wrap mt"><table class="table"><thead><tr><th>Umbral</th><th>Alcanzado</th><th>Pesaje</th><th>Resultado real vs. inicial</th></tr></thead><tbody>${[...cks].reverse().map(c=>`<tr><td>${fmt(c.targetNet)} kcal</td><td>${c.dateReached}</td><td>${c.measuredKg===null?'<span class="text-amber">Pendiente</span>':fmt(c.measuredKg,1)+' kg'}</td><td>${c.measuredKg!==null&&baseline!==null?fmt(baseline-c.measuredKg,2)+' kg menos':'—'}</td></tr>`).join('')}</tbody></table></div>`:''}
  <p class="no-data-note">Unos 7.700 kcal equivalen aproximadamente a la energía de 1 kg de grasa, pero el peso total puede comportarse distinto. El gasto de Gemini es una estimación.</p></div>`;
 }
+function metabolicCard(){
+ const m=metabolicMetrics(),missingBMI=m.needsBMI,missingTMB=m.needsTMB;
+ const card=(label,value,unit,details,pending)=>`<div class="metabolic-stat"><div class="stat-label">${label}</div><div class="metabolic-value num ${pending?'pending-value':''}">${pending?'Pendiente de carga':fmt(value,1)}${pending?'':` <span class="stat-unit">${unit}</span>`}</div><p class="stat-sub">${pending?`Falta: ${escapeHtml(details.join(', '))}`:escapeHtml(label==='IMC'?m.source+' · '+fmt(m.weight,1)+' kg':'Estimación en reposo · '+m.age+' años')}</p></div>`;
+ return `<div class="card"><div class="card-title"><div><h2>Indicadores corporales</h2><p class="small muted">Se actualizan con tu peso más reciente y los datos de tu perfil.</p></div>${editing()?'<button class="btn sm" data-action="profile-edit">✎ Completar perfil</button>':''}</div>
+ <div class="metabolic-grid">${card('IMC · Índice de masa corporal',m.bmi,'kg/m²',missingBMI,m.bmi===null)}${card('TMB · Metabolismo basal',m.tmb,'kcal/día',missingTMB,m.tmb===null)}</div>
+ <p class="no-data-note">El IMC se calcula con peso y estatura, sin usar género. La TMB se estima con Mifflin-St Jeor usando peso, estatura, edad y el parámetro de fórmula elegido. La ecuación aproxima el gasto en reposo, no tu gasto total diario; ambos indicadores son orientativos.</p></div>`;
+}
 function pageProgress(){
  const end=stageEnd(),measures=rec('body'),weights=measures.filter(x=>Number.isFinite(x.kg)),dates=activeDates();
  return `<div class="content">${sectionTitle('Mi evolución','PROGRESO')}${promptAlerts()}
  <div class="row between wrap"><div class="btn-row">${periodButtons()}</div>${editing()?'<button class="btn primary" data-action="body-add">+ Cargar peso / medidas</button>':''}</div>
  <div class="cards-3">${stat('Peso inicial',stage().baseWeight!==null?fmt(stage().baseWeight,1):'—','kg','Inicio de etapa')}${stat('Último pesaje',lastBody()?fmt(lastBody().kg,1):'—','kg',lastBody()?.d||'Sin registros')}${stat('Cobertura',coverageCount('body',dates)+' / '+daysTracked(dates),'días','Días con mediciones')}</div>
+ ${metabolicCard()}
  <div class="card"><div class="card-title"><h2>Evolución con fechas reales</h2><div class="btn-row"><button class="choice ${(!ui.chartMeasure||ui.chartMeasure==='kg')?'active':''}" data-action="measure-field" data-field="kg">Peso</button>${BF.map(f=>`<button class="choice ${ui.chartMeasure===f?'active':''}" data-action="measure-field" data-field="${f}">${f}</button>`).join('')}</div></div>${measureChart()}<div class="no-data-note">Las fechas son proporcionales al calendario, incluso si pasás semanas sin medirte.</div></div>
  ${checkpointStatus()}
  <div class="card"><div class="card-title"><h2>Historial de medidas</h2></div><div class="table-wrap"><table class="table"><thead><tr><th>Fecha</th><th>Peso</th><th>Medidas (cm)</th><th></th></tr></thead><tbody>${measures.slice().sort((a,b)=>b.d.localeCompare(a.d)).map(x=>`<tr><td>${x.d}</td><td>${x.kg!=null?fmt(x.kg,1)+' kg':'—'}</td><td>${Object.entries(x.m||{}).map(([k,v])=>escapeHtml(k)+': '+fmt(v,1)).join(' · ')||'—'}</td><td>${editing()?`<button class="btn sm ghost" data-action="body-edit" data-date="${x.d}">✎</button><button class="btn sm danger" data-action="body-delete" data-date="${x.d}" aria-label="Eliminar pesaje">×</button>`:''}</td></tr>`).join('')||'<tr><td colspan="4">Todavía no cargaste mediciones.</td></tr>'}</tbody></table></div></div>${calendar()}</div>`;
@@ -344,10 +381,12 @@ function pageProgress(){
 function pageSettings(){
  return `<div class="content">${sectionTitle('Configuración','MI ESPACIO')}
  <div class="card"><div class="card-title"><h2>Apariencia</h2></div><div class="btn-row">${[['auto','Automático'],['dark','Oscuro'],['light','Claro']].map(([v,l])=>`<button class="choice ${S.theme===v?'active':''}" data-action="theme" data-theme="${v}">${l}</button>`).join('')}</div><p class="no-data-note">Se guarda la preferencia en este dispositivo.</p></div>
+ <div class="card"><div class="card-title"><div><h2>Mi perfil corporal</h2><p class="small muted">Datos opcionales para calcular IMC y TMB.</p></div>${editing()?'<button class="btn sm primary" data-action="profile-edit">Editar perfil</button>':''}</div>
+ <div class="profile-summary"><div><div class="stat-label">Estatura</div><strong>${S.profile?.heightCm?fmt(S.profile.heightCm,1)+' cm':'Pendiente de carga'}</strong></div><div><div class="stat-label">Fecha de nacimiento</div><strong>${S.profile?.birthDate?escapeHtml(S.profile.birthDate):'Pendiente de carga'}</strong></div><div><div class="stat-label">Fórmula TMB</div><strong>${S.profile?.formula==='female'?'Referencia femenina':S.profile?.formula==='male'?'Referencia masculina':'Pendiente de carga'}</strong></div></div><p class="no-data-note">Los datos se guardan solo en este dispositivo. El peso se carga en Progreso → Peso y medidas.</p></div>
  <div class="card"><div class="card-title"><h2>Etapas e historial</h2>${editing()?'<button class="btn sm primary" data-action="stage-new">+ Nueva etapa</button>':''}</div><p class="small muted mb">Archivar una etapa no elimina sus registros ni altera tus rutinas.</p><div class="list-items">${S.stages.slice().reverse().map(st=>`<div class="list-item"><span style="font-size:19px">${st.id===S.activeId?'💗':'🗂'}</span><div class="maintext"><strong>${escapeHtml(st.name)}</strong><small>${escapeHtml(st.start)}${st.archivedAt?' → '+escapeHtml(st.archivedAt):' · actual'} · ${S.food.filter(x=>x.stageId===st.id).length} días de alimentación</small></div><button class="btn sm" data-action="stage-view" data-id="${escapeAttr(st.id)}">${st.id===stage().id?'Viendo':'Ver'}</button></div>`).join('')}</div></div>
  <div class="card"><div class="card-title"><h2>Mis ejercicios y rutinas</h2></div><div class="btn-row"><button class="btn" data-action="ex-list">🏋 Gestionar ejercicios (${S.ex.length})</button><button class="btn" data-action="routine-edit">📋 Editar rutinas (${S.rt.length})</button><button class="btn" data-action="plan-edit">📅 Plan semanal</button><button class="btn" data-action="checklist-config">☑️ Editar checklist</button></div></div>
  <div class="card"><div class="card-title"><h2>Datos y respaldo</h2>${pill('100% local','good')}</div><p class="small muted mb">Tus datos están guardados en este navegador. Al borrar sus datos, cambiar de celular o reinstalarlo, podés perderlos si no exportás un backup.</p><div class="btn-row"><button class="btn primary" data-action="export">⬇ Descargar backup JSON</button><button class="btn" data-action="import">⬆ Importar backup JSON</button></div><p class="no-data-note">Se mantiene intacta la clave anterior (<code>gymapp1</code>) si venías de la versión 1. Importar reemplaza los datos de v2 después de pedir confirmación.</p></div>
- <div class="card"><div class="card-title"><h2>Acerca de Mi Gym 2.0</h2></div><p class="small muted">HTML, CSS y JavaScript, sin bibliotecas externas. Instalable como PWA con uso offline. Sin cuenta, sin sincronización y sin enviar tus datos a ningún servidor.</p></div></div>`;
+ <div class="card"><div class="card-title"><h2>Acerca de Mi Gym 2.1</h2></div><p class="small muted">HTML, CSS y JavaScript, sin bibliotecas externas. Instalable como PWA con uso offline. Sin cuenta, sin sincronización y sin enviar tus datos a ningún servidor.</p></div></div>`;
 }
 /* ---------- Accessible editing dialogs ---------- */
 function closeModal(){const root=$('#modal-root');root.innerHTML='';document.body.style.overflow=''}
@@ -407,7 +446,23 @@ function openPasteModal(){
   try{await navigator.clipboard.writeText(GEMINI_PROMPT);toast('Instrucción copiada')}catch(e){showModal('Instrucción para Gemini',`<textarea rows="11" readonly>${escapeHtml(GEMINI_PROMPT)}</textarea>`,[{label:'Cerrar',onClick:()=>{}}])}
  }}});
 }
-function openBodyModal(d=iso()){
+function openProfileModal(){
+ if(!editing())return;
+ const p=normalizeProfile(S.profile);
+ showModal('Mi perfil corporal',`<p class="small muted">Completá los datos para calcular automáticamente el IMC y el metabolismo basal. Se guardan solo en este dispositivo.</p>
+ ${field('Estatura (cm)','heightCm',p.heightCm??'','number','min="100" max="230" step="0.1" inputmode="decimal" placeholder="Ej.: 165"')}
+ ${field('Fecha de nacimiento','birthDate',p.birthDate,'date',`max="${iso()}" min="1900-01-01"`)}
+ <div class="field"><label for="f-formula">Parámetro de la fórmula de TMB</label><select id="f-formula" data-field="formula"><option value="" ${!p.formula?'selected':''}>Elegir más adelante</option><option value="female" ${p.formula==='female'?'selected':''}>Referencia femenina (−161)</option><option value="male" ${p.formula==='male'?'selected':''}>Referencia masculina (+5)</option></select><p class="field-note">La ecuación publicada tiene coeficientes masculino y femenino. Elegí el que corresponda para esta estimación; no define tu identidad de género.</p></div>
+ <div class="muted-box small">Para el IMC solo se necesitan el peso y la estatura. Para la TMB también se necesita la edad y una referencia de fórmula. Esta estimación se aplica a adultos (20+).</div>`,[
+ {label:'Cancelar',onClick:()=>{}},{label:'Guardar perfil',kind:'primary',onClick:el=>{
+  const heightCm=asNumber(read(el,'heightCm')),birthDate=read(el,'birthDate'),formula=read(el,'formula');
+  if(heightCm!==null&&(heightCm<100||heightCm>230))throw Error('Revisá la estatura (100 a 230 cm)');
+  if(birthDate&&(!validDate(birthDate)||birthDate>iso()||birthDate<'1900-01-01'))throw Error('Revisá la fecha de nacimiento');
+  if(!['','female','male'].includes(formula))throw Error('Seleccioná una referencia válida');
+  S.profile={heightCm,birthDate,formula};persist();render();toast('Perfil guardado');
+ }}]);
+}
+function openBodyModal(d=iso()){ 
  if(!editing())return;
  const r=recActive('body').find(x=>x.d===d);
  showModal(r?'Editar peso y medidas':'Peso y medidas',`${field('Fecha','fecha',d,'date',`max="${iso()}" min="${activeStage().start}"`)}
@@ -621,6 +676,7 @@ const ACTIONS={
  'food-edit':b=>openFoodModal(b.dataset.date),
  'food-paste':openPasteModal,
  'food-delete':b=>confirmModal('Eliminar día de alimentación',`¿Querés borrar el registro del ${b.dataset.date}? Podrás recuperarlo desde una copia de seguridad anterior.`,()=>deleteRecord('food',b.dataset.date),'Eliminar registro',true),
+ 'profile-edit':openProfileModal,
  'body-add':()=>openBodyModal(),
  'body-edit':b=>openBodyModal(b.dataset.date),
  'body-delete':b=>confirmModal('Eliminar pesaje',`¿Querés borrar el control del ${b.dataset.date}? Si estaba asociado a un umbral, volverá a quedar pendiente.`,()=>deleteRecord('body',b.dataset.date),'Eliminar registro',true),

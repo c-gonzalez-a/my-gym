@@ -1,4 +1,4 @@
-# 💗 Mi Gym 2.0
+# 💗 Mi Gym 2.1
 
 Aplicación personal **instalable como PWA** para registrar entrenamientos, alimentación, hábitos, peso y medidas. Diseño responsive, con temas claro, oscuro y automático. **Sin cuentas, sin servidor, sin dependencia de servicios externos para funcionar y usable offline** después de la primera visita por HTTPS.
 
@@ -9,7 +9,7 @@ Aplicación personal **instalable como PWA** para registrar entrenamientos, alim
 1. Abrí tu versión actual, en **Gym → Gestionar → Backup → Exportar**.
 2. Guardá el archivo `.json` en un lugar seguro, fuera del navegador.
 3. Actualizá tu repositorio de GitHub como se explica más abajo.
-4. Abrí la app nueva desde **el mismo enlace de GitHub Pages y el mismo navegador/dispositivo**. Mi Gym 2.0 intentará migrar automáticamente los datos guardados bajo la clave antigua `gymapp1`.
+4. Abrí la app nueva desde **el mismo enlace de GitHub Pages y el mismo navegador/dispositivo**. Mi Gym 2.1 intentará migrar automáticamente los datos guardados bajo la clave antigua `gymapp1`.
 5. Verificá tus rutinas, alimentación, pesajes y entrenamientos. Si no aparecen porque cambiaste de navegador, URL o dispositivo, abrí **Ajustes → Importar backup JSON** y seleccioná el respaldo que descargaste.
 6. Cuando estés conforme, elegí **Ajustes → Nueva etapa**. La anterior quedará archivada y la nueva empezará con su propio historial. El botón no elimina información previa.
 
@@ -25,7 +25,7 @@ Aplicación personal **instalable como PWA** para registrar entrenamientos, alim
 
 Si no querés publicar todavía, `index.html` puede abrirse en una computadora junto a `app.js` y `styles.css`; sin embargo, algunos navegadores restringen el almacenamiento local en archivos `file://`, y el modo offline instalable necesita HTTPS. La prueba recomendada es desde GitHub Pages.
 
-## ¿Qué incluye la versión 2.0?
+## ¿Qué incluye la versión 2.1?
 
 ### Inicio
 
@@ -106,3 +106,14 @@ Se puede pegar una lista (`[ {...}, {...} ]`) con varios días. `kcal` correspon
 ## Pruebas realizadas
 
 Se comprobó en navegador headless con anchos de celular y escritorio: navegación, cambio de temas, carga de alimentación, días incompletos, importación de JSON de Gemini, registro de medidas, inicio y registro de ejercicios, creación de nueva etapa y consulta del historial archivado. También se comprobó que no haya errores JavaScript y que no aparezca desplazamiento horizontal en esos tamaños. **Conviene hacer una prueba en tu propio teléfono antes de dar por terminada la migración.**
+
+## Nuevo en 2.1 — IMC, TMB y avisos discretos
+
+- En **Ajustes → Mi perfil corporal → Editar perfil** podés cargar tu **estatura en cm**, **fecha de nacimiento** y el **parámetro de la fórmula de metabolismo en reposo** (referencia femenina o masculina). Todos los campos son opcionales, quedan exclusivamente en este dispositivo y se incluyen en el backup JSON.
+- El **peso** se registra en **Progreso → Cargar peso / medidas**. Se usa el último pesaje de la etapa; si todavía no hay uno, se utiliza el peso inicial de la etapa si existe. No se arrastran pesajes de otras etapas.
+- En **Progreso → Indicadores corporales** se muestra el **IMC = peso (kg) / altura (m)²**. No necesita género ni edad. Se muestra **Pendiente de carga** si falta peso o altura. Es un indicador de referencia, no una medición directa de grasa corporal.
+- La **TMB** se presenta como una estimación del gasto en reposo utilizando la ecuación **Mifflin–St Jeor** para adultos desde los 20 años (10 × peso kg + 6,25 × altura cm − 5 × edad + 5 para la referencia masculina; −161 para la femenina). No es lo mismo que el gasto diario total y no sustituye el gasto estimado en Gemini. Si faltan datos aparece **Pendiente de carga**, indicando exactamente qué cargar. La ecuación predice gasto metabólico en reposo y se usa como aproximación práctica de TMB.
+- El aviso de **Progreso** de la barra de navegación es ahora un **puntito rosa superpuesto en la esquina del ícono**, sin ocupar lugar ni mover otros elementos. Desaparece cuando no hay controles de peso pendientes, según las reglas de recordatorios existentes.
+- **Compatibilidad:** la misma clave `migym-v2` y el mismo esquema de backup; las instalaciones 2.0 se completan con un perfil vacío sin alterar su historial. Actualizar `sw.js` obliga a usar la nueva caché 2.1.
+
+Referencias generales de los cálculos: [CDC — Body Mass Index](https://www.cdc.gov/bmi/about/) y [NIH / Endotext — Mifflin–St Jeor](https://www.ncbi.nlm.nih.gov/books/NBK278991/).

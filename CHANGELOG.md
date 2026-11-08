@@ -1,3 +1,13 @@
+# Cambios de Mi Gym
+
+## 2.1.0 — Perfil corporal y navegación
+- Perfil corporal opcional: estatura, fecha de nacimiento y parámetro de fórmula Mifflin–St Jeor.
+- Nuevos indicadores de IMC y TMB (gasto basal estimado) en Progreso, con “Pendiente de carga” y explicación de datos faltantes.
+- Se usa el último peso registrado en la etapa actual o su peso inicial.
+- Aviso discreto: puntito rosa superpuesto al ícono de Progreso, sin alterar la distribución de la barra.
+- Compatibilidad de datos y backups con 2.0 sin perder historial.
+- Caché offline actualizada a 2.1.0.
+
 # Cambios — Mi Gym 2.0
 
 ## 2.0.0
