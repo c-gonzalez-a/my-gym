@@ -1,69 +1,108 @@
-# Mi gym
+# 💗 Mi Gym 2.0
 
-App personal para llevar rutinas de gimnasio, alimentación y medidas del cuerpo. Funciona como un chat con botones, se instala en el celu como una app (PWA) y **funciona sin internet**. Los datos se guardan solo en el dispositivo.
+Aplicación personal **instalable como PWA** para registrar entrenamientos, alimentación, hábitos, peso y medidas. Diseño responsive, con temas claro, oscuro y automático. **Sin cuentas, sin servidor, sin dependencia de servicios externos para funcionar y usable offline** después de la primera visita por HTTPS.
 
-## Qué hace
+## 🚨 Antes de actualizar desde la versión 1
 
-**Hoy**
-- Al abrir la app ves el plan del día (gym, cardio, caminatas, pileta) con su tope de kcal, editable por día desde Gestionar.
-- Checklist diario opcional y editable, que se abre desde un botón.
+**Hacé una copia de seguridad en la aplicación vieja antes de reemplazar los archivos del repositorio.**
 
-**Cumplimiento**
-- Cuadrícula visual por tarea y por día (semana o mes): cada cuadrado se pinta si cumpliste esa tarea.
+1. Abrí tu versión actual, en **Gym → Gestionar → Backup → Exportar**.
+2. Guardá el archivo `.json` en un lugar seguro, fuera del navegador.
+3. Actualizá tu repositorio de GitHub como se explica más abajo.
+4. Abrí la app nueva desde **el mismo enlace de GitHub Pages y el mismo navegador/dispositivo**. Mi Gym 2.0 intentará migrar automáticamente los datos guardados bajo la clave antigua `gymapp1`.
+5. Verificá tus rutinas, alimentación, pesajes y entrenamientos. Si no aparecen porque cambiaste de navegador, URL o dispositivo, abrí **Ajustes → Importar backup JSON** y seleccioná el respaldo que descargaste.
+6. Cuando estés conforme, elegí **Ajustes → Nueva etapa**. La anterior quedará archivada y la nueva empezará con su propio historial. El botón no elimina información previa.
 
-**Gym**
-- Detecta el día y te da la rutina que corresponde. Si hay dos rutinas para el mismo día, las alterna semana a semana.
-- Elegís con botones por qué ejercicio arrancar y ves series, reps y peso.
-- Registrás cambios (más peso, más reps) y dejás notas para la próxima vez. La nota se muestra una sola vez.
-- Ejercicios opcionales y límite de ejercicios del mismo músculo. Si no hay máquina, ofrece alternativas del mismo músculo.
-- Cada ejercicio tiene su propia info: si está en varias rutinas, el peso y las notas valen para todas.
-- Stats mensuales: días entrenados, veces por ejercicio y evolución del peso.
-- Se pueden crear ejercicios y rutinas nuevos, incluso en plena rutina.
+> La actualización **no borra la clave original** `gymapp1`. La versión nueva guarda sus datos en una clave separada, `migym-v2`. Esto no reemplaza la recomendación de exportar un backup real.
 
-**Alimentación**
-- Registro diario de kcal comidas, proteínas, carbohidratos, grasas y kcal gastadas. El déficit se calcula solo.
-- Seguimiento por día, semana y mes con gráficos y KPIs.
-- Importación desde un chat de IA (ver más abajo).
+## Actualizar GitHub Pages
 
-**Control**
-- Peso y medidas del cuerpo con gráfico de evolución.
-- Recordatorio pendiente los días 1 y 15 de cada mes.
+1. Descomprimí `Mi-Gym-2.0.zip`.
+2. Subí **los archivos que están dentro** del ZIP a la **raíz** del mismo repositorio que ya publica tu app. Reemplazá `index.html`, `manifest.webmanifest`, `sw.js` y los íconos. Agregá los nuevos `app.js`, `styles.css`, `README.md` y `CHANGELOG.md`.
+3. Confirmá el commit en la rama publicada (por ejemplo `main`). Si no tenés Pages configurado: **Settings → Pages → Deploy from a branch → `main` → `/ (root)`**.
+4. Abrí tu URL de GitHub Pages. Esperá la publicación y recargá la página. Si ves la versión vieja, cerrá y abrí nuevamente la app; el Service Worker antiguo guardaba una versión en caché.
+5. **No borres los datos del sitio** como método de actualización: eso sí podría eliminar tus registros locales.
 
-## Usarla en la compu
+Si no querés publicar todavía, `index.html` puede abrirse en una computadora junto a `app.js` y `styles.css`; sin embargo, algunos navegadores restringen el almacenamiento local en archivos `file://`, y el modo offline instalable necesita HTTPS. La prueba recomendada es desde GitHub Pages.
 
-Abrí `index.html` con doble clic. No necesita instalar nada.
+## ¿Qué incluye la versión 2.0?
 
-## Instalarla en el celu
+### Inicio
 
-1. Publicá el repositorio con GitHub Pages (Settings › Pages › branch `main`, carpeta `/ (root)`).
-2. Abrí el link en el celu con internet, una vez.
-3. Android (Chrome): menú ⋮ › *Instalar app*. iPhone (Safari): Compartir › *Agregar a inicio*.
+- Dashboard con balance energético de la etapa, días con gym, último peso y progreso hacia el siguiente control.
+- Actividades previstas para hoy, checklist y calendario de **días efectivamente anotados**.
+- Los días sin carga son simplemente **sin registro**; no cuentan automáticamente como incumplimientos.
 
-Después se abre desde el ícono y funciona sin conexión. Al subir una versión nueva de `index.html`, se actualiza la segunda vez que abrís la app.
+### Gym
 
-## Datos y backup
+- Rutinas existentes y ejercicios migrados sin perder sus configuraciones.
+- Inicio, seguimiento y finalización de sesiones; guardado de ejercicios ya realizados, incluso cuando se cierra la app.
+- Edición de series, ejercicios, grupos musculares y rutinas, más alternativas adicionales durante la sesión.
+- Evolución de cargas por ejercicio y fechas reales; se distinguen intervalos largos sin medición.
+- Historial por día, con edición o borrado de un ejercicio histórico registrado por error.
 
-Todo se guarda en el `localStorage` del navegador, en el propio dispositivo, sin servidor. Para no perder datos al cambiar de celu o borrar el navegador, usá **Gym › Gestionar › Backup › Exportar** (y *Importar* para restaurar).
+### Alimentación
 
-## Importar el día desde un chat de IA
+- Carga y corrección de días, macros y gasto energético estimado.
+- Importación desde Gemini mediante bloques JSON (un día o una lista de días).
+- Gráficos de balance, comidas vs. gasto y macronutrientes, con escalas basadas en **fechas reales**.
+- Vista de 7, 30, 90 días o hasta 730 días de historial.
+- Un día **sin gasto registrado** queda **incompleto**; no se interpreta como `0 kcal` de gasto.
+- Las estimaciones de gasto que recibís de Gemini no son mediciones objetivas ni deben considerarse precisas.
 
-En **Alimentación › Pegar de Gemini** se pega un bloque JSON con este formato (también acepta una lista de días):
+### Peso y progreso
+
+- Gráficos de peso y medidas con fechas proporcionales al calendario.
+- Dos recordatorios: un control periódico los días **1 y 15**, y otro al alcanzar cada múltiplo de **7.700 kcal de déficit neto registrado**.
+- Comparación entre equivalente teórico de grasa y cambio de peso observado, si tenés un peso inicial registrado.
+- El peso en la balanza puede variar por agua, ciclo, glucógeno, contenido intestinal y errores en estimaciones; el cálculo **no predice exactamente** la pérdida de peso.
+
+### Etapas y privacidad
+
+- **Nueva etapa**: archiva la actual, crea una nueva desde hoy, te deja ingresar un peso inicial y conserva las rutinas.
+- Los objetivos/calorías diarios antiguos se desactivan al iniciar una etapa nueva para que puedas revisarlos antes de volver a usarlos.
+- Se puede consultar una etapa archivada desde Ajustes, en modo lectura.
+- Los datos se guardan **solamente en el navegador actual** (`localStorage`). No existe sincronización entre dispositivos.
+- Exportación e importación JSON, compatible con respaldo v1 y v2. **Importar reemplaza los datos actuales** después de mostrar confirmación.
+
+## Gemini: formato de importación
+
+Abrí **Comidas → Pegar de Gemini → Copiar instrucción para Gemini**. Pegá la instrucción en Gemini, que devuelve un objeto por día:
 
 ```json
-{"fecha":"AAAA-MM-DD","kcal":0,"prot":0,"carb":0,"grasa":0,"gasto":0}
+{
+  "fecha": "2026-11-07",
+  "kcal": 1850,
+  "prot": 115,
+  "carb": 178,
+  "grasa": 58,
+  "gasto": 2350
+}
 ```
 
-`kcal` son las calorías comidas, `prot`, `carb` y `grasa` van en gramos, y `gasto` son las kcal totales gastadas en el día. El botón *Instrucción para Gemini* muestra el texto listo para pedirle el bloque a la IA.
+Se puede pegar una lista (`[ {...}, {...} ]`) con varios días. `kcal` corresponde a lo **comido**. `gasto` debe corresponder al **gasto diario total estimado**, no solamente al gasto del gym. Si Gemini no tiene suficiente información, debería responder `null` para los valores desconocidos; esos días no contribuirán al cálculo del déficit hasta completarlos. El usuario decide qué pegar y **la app no se conecta automáticamente a Gemini**.
 
 ## Archivos
 
-| Archivo | Para qué sirve |
+| Archivo | Uso |
 |---|---|
-| `index.html` | La app completa (HTML, CSS y JS en un solo archivo) |
-| `manifest.webmanifest` | Datos para instalarla como app |
-| `sw.js` | Service worker: cache y uso sin internet |
-| `icon-192.png`, `icon-512.png` | Ícono de la app |
+| `index.html` | Estructura de la app |
+| `styles.css` | Diseño responsive, claro y oscuro |
+| `app.js` | Estado, migración, rutinas, registros, gráficos, etapas |
+| `manifest.webmanifest` | Instalación de la PWA |
+| `sw.js` | Caché para uso offline y actualizaciones |
+| `icon-192.png`, `icon-512.png` | Íconos existentes, conservados |
+| `.gitattributes` | Normalización de finales de línea |
 
-## Tecnología
+## Alcance y limitaciones
 
-HTML, CSS y JavaScript sin dependencias ni paso de compilación.
+- Sin dependencias npm ni build: los archivos se publican tal cual en GitHub Pages.
+- No integra servicios médicos, balanzas, relojes ni Gemini mediante API.
+- Las fechas y cálculos usan la zona horaria local del dispositivo.
+- El almacenamiento local puede borrarse si se borran los datos del navegador; exportá backups regularmente.
+- Una corrección retrospectiva del balance puede modificar o retirar hitos **pendientes**. Los controles ya confirmados mediante un pesaje permanecen en el historial.
+- No se recomienda basar decisiones de nutrición o salud exclusivamente en cálculos de una app o estimaciones de IA.
+
+## Pruebas realizadas
+
+Se comprobó en navegador headless con anchos de celular y escritorio: navegación, cambio de temas, carga de alimentación, días incompletos, importación de JSON de Gemini, registro de medidas, inicio y registro de ejercicios, creación de nueva etapa y consulta del historial archivado. También se comprobó que no haya errores JavaScript y que no aparezca desplazamiento horizontal en esos tamaños. **Conviene hacer una prueba en tu propio teléfono antes de dar por terminada la migración.**

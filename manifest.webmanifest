@@ -1,1 +1,15 @@
-{"name":"Mi gym","short_name":"Gym","start_url":"./","scope":"./","display":"standalone","background_color":"#09060b","theme_color":"#09060b","icons":[{"src":"icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},{"src":"icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]}
+{
+  "name": "Mi Gym · Tu progreso",
+  "short_name": "Mi Gym",
+  "description": "Entrenamientos, alimentación y evolución corporal. Local y sin conexión.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#130d19",
+  "theme_color": "#130d19",
+  "lang": "es-AR",
+  "icons": [
+    {"src":"icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}
