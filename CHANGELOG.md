@@ -1,3 +1,21 @@
+# Mi Gym 2.4
+
+- Se agrega nota orientativa del IMC de referencia entre 18,5 y 24,9 para adultos.
+- Incluye y consolida los cambios 2.2 y 2.3.
+
+# Mi Gym 2.3
+
+- Indicador visual de IMC con barra de colores y aguja
+- Categoría textual del IMC: bajo peso, normal, sobrepeso u obesidad
+
+# Mi Gym 2.2
+
+- Vista de rutina rediseñada para celular
+- Botones de acción reordenados en cada ejercicio
+- Series mostradas en tarjetas de kg / reps, sin numeración de serie visible
+- Timer en la rutina activa
+- Resumen final del entrenamiento con copia rápida para IA
+
 # Cambios de Mi Gym
 
 ## 2.1.0 — Perfil corporal y navegación

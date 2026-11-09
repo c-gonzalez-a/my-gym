@@ -25,3 +25,43 @@
 .profile-summary>div{background:var(--surface-2);border-radius:13px;padding:13px;min-width:0}
 .profile-summary strong{font-size:13px;overflow-wrap:anywhere}
 @media(max-width:430px){.metabolic-grid{grid-template-columns:1fr}.profile-summary{grid-template-columns:1fr 1fr}.metabolic-stat{padding:14px}}
+
+
+/* Mi Gym 2.2: cleaner workout cards and live timer */
+.session-overview{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}
+.session-timer-box{min-width:130px;padding:12px 14px;border-radius:16px;background:var(--surface-2);border:1px solid var(--edge);display:grid;gap:4px;text-align:right}
+.session-timer{font-size:clamp(22px,4vw,30px);font-weight:850;letter-spacing:-.04em;line-height:1}
+.session-list{display:grid;gap:12px}
+.session-card{background:var(--surface-2);border:1px solid var(--edge);border-radius:16px;padding:14px;display:grid;gap:12px}
+.session-card.done{opacity:.92}
+.session-card-top{display:flex;align-items:flex-start;gap:12px}
+.session-order{width:34px;height:34px;border-radius:12px;background:var(--accent-soft);color:var(--accent);font-weight:800;display:grid;place-items:center;flex:none}
+.session-card.done .session-order{background:rgba(101,211,160,.14);color:var(--green)}
+.session-card.done strong{text-decoration:line-through;opacity:.72}
+.session-series{display:grid;gap:8px}
+.set-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(122px,1fr));gap:8px}
+.set-card{border:1px solid var(--edge);background:var(--surface-3);border-radius:12px;padding:10px 11px;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-width:0}
+.set-col{display:grid;gap:2px;min-width:0}
+.set-col strong{font-size:16px;line-height:1.1;overflow-wrap:anywhere}
+.set-label{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.02em;text-transform:uppercase}
+.stack-actions{display:grid;grid-template-columns:1fr;gap:8px}
+.stack-actions .btn{width:100%}
+@media(min-width:681px){.stack-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.stack-actions .btn{width:auto}.session-card{padding:15px 16px}}
+@media(max-width:680px){.session-card-top{align-items:center}.session-timer-box{text-align:left;width:100%}.set-board{grid-template-columns:repeat(2,minmax(0,1fr))}.item-actions.stack-actions{justify-content:stretch}}
+@media(max-width:390px){.set-board{grid-template-columns:1fr}.session-order{width:30px;height:30px;border-radius:10px}.session-card{padding:12px}}
+
+
+/* Mi Gym 2.3: IMC gauge */
+.bmi-gauge-wrap{margin-top:12px;display:grid;gap:8px}
+.bmi-gauge{position:relative;height:14px;border-radius:999px;overflow:visible;display:grid;grid-template-columns:14% 26% 20% 40%;background:var(--surface-3);border:1px solid var(--edge)}
+.bmi-seg{height:100%}
+.bmi-seg.low{background:var(--blue)}
+.bmi-seg.normal{background:var(--green)}
+.bmi-seg.high{background:var(--amber)}
+.bmi-seg.veryhigh{background:var(--accent)}
+.bmi-needle{position:absolute;top:-6px;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:0;border-bottom:9px solid var(--text);filter:drop-shadow(0 1px 1px rgba(0,0,0,.28))}
+.bmi-needle::after{content:'';position:absolute;left:-2px;top:8px;width:4px;height:10px;border-radius:999px;background:var(--text)}
+.bmi-scale{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font-size:11px;font-weight:700}
+
+.bmi-healthy-note{margin:4px 0 0;padding:11px 12px;background:var(--surface);border:1px solid var(--edge);border-radius:11px;color:var(--muted);font-size:12px;line-height:1.5}
+.bmi-healthy-note strong{color:var(--text)}

@@ -1,4 +1,4 @@
-# 💗 Mi Gym 2.1
+# 💗 Mi Gym 2.4
 
 Aplicación personal **instalable como PWA** para registrar entrenamientos, alimentación, hábitos, peso y medidas. Diseño responsive, con temas claro, oscuro y automático. **Sin cuentas, sin servidor, sin dependencia de servicios externos para funcionar y usable offline** después de la primera visita por HTTPS.
 
@@ -9,7 +9,7 @@ Aplicación personal **instalable como PWA** para registrar entrenamientos, alim
 1. Abrí tu versión actual, en **Gym → Gestionar → Backup → Exportar**.
 2. Guardá el archivo `.json` en un lugar seguro, fuera del navegador.
 3. Actualizá tu repositorio de GitHub como se explica más abajo.
-4. Abrí la app nueva desde **el mismo enlace de GitHub Pages y el mismo navegador/dispositivo**. Mi Gym 2.1 intentará migrar automáticamente los datos guardados bajo la clave antigua `gymapp1`.
+4. Abrí la app nueva desde **el mismo enlace de GitHub Pages y el mismo navegador/dispositivo**. Mi Gym 2.4 intentará migrar automáticamente los datos guardados bajo la clave antigua `gymapp1`.
 5. Verificá tus rutinas, alimentación, pesajes y entrenamientos. Si no aparecen porque cambiaste de navegador, URL o dispositivo, abrí **Ajustes → Importar backup JSON** y seleccioná el respaldo que descargaste.
 6. Cuando estés conforme, elegí **Ajustes → Nueva etapa**. La anterior quedará archivada y la nueva empezará con su propio historial. El botón no elimina información previa.
 
@@ -17,7 +17,7 @@ Aplicación personal **instalable como PWA** para registrar entrenamientos, alim
 
 ## Actualizar GitHub Pages
 
-1. Descomprimí `Mi-Gym-2.0.zip`.
+1. Descomprimí `Mi-Gym-2.4.zip`.
 2. Subí **los archivos que están dentro** del ZIP a la **raíz** del mismo repositorio que ya publica tu app. Reemplazá `index.html`, `manifest.webmanifest`, `sw.js` y los íconos. Agregá los nuevos `app.js`, `styles.css`, `README.md` y `CHANGELOG.md`.
 3. Confirmá el commit en la rama publicada (por ejemplo `main`). Si no tenés Pages configurado: **Settings → Pages → Deploy from a branch → `main` → `/ (root)`**.
 4. Abrí tu URL de GitHub Pages. Esperá la publicación y recargá la página. Si ves la versión vieja, cerrá y abrí nuevamente la app; el Service Worker antiguo guardaba una versión en caché.
@@ -25,7 +25,7 @@ Aplicación personal **instalable como PWA** para registrar entrenamientos, alim
 
 Si no querés publicar todavía, `index.html` puede abrirse en una computadora junto a `app.js` y `styles.css`; sin embargo, algunos navegadores restringen el almacenamiento local en archivos `file://`, y el modo offline instalable necesita HTTPS. La prueba recomendada es desde GitHub Pages.
 
-## ¿Qué incluye la versión 2.1?
+## ¿Qué incluye la versión 2.4?
 
 ### Inicio
 
@@ -117,3 +117,10 @@ Se comprobó en navegador headless con anchos de celular y escritorio: navegaci�
 - **Compatibilidad:** la misma clave `migym-v2` y el mismo esquema de backup; las instalaciones 2.0 se completan con un perfil vacío sin alterar su historial. Actualizar `sw.js` obliga a usar la nueva caché 2.1.
 
 Referencias generales de los cálculos: [CDC — Body Mass Index](https://www.cdc.gov/bmi/about/) y [NIH / Endotext — Mifflin–St Jeor](https://www.ncbi.nlm.nih.gov/books/NBK278991/).
+
+### Novedades 2.2–2.4
+
+- Tarjetas de rutina adaptadas al celular con acciones apiladas y series en dos columnas (carga y repeticiones).
+- Temporizador visible durante el entrenamiento, con resumen y prompt para IA al finalizar.
+- IMC con escala visual, aguja, categorías y aclaración del rango de referencia 18,5–24,9.
+- Aviso pendiente de Progreso superpuesto sobre el ícono de navegación.

@@ -15,6 +15,8 @@ const validDate=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&iso(local
 const eNum=x=>Math.round((x+Number.EPSILON)*100)/100;
 const uid=()=>String(Date.now())+'-'+Math.random().toString(36).slice(2,9);
 const maybe=(x,label='Sin datos')=>Number.isFinite(x)?fmt(x,1):label;
+const pad=n=>String(n).padStart(2,'0');
+const formatDuration=ms=>{const total=Math.max(0,Math.floor((ms||0)/1000));const h=Math.floor(total/3600),m=Math.floor((total%3600)/60),s=total%60;return (h?pad(h)+':':'')+pad(m)+':'+pad(s)};
 
 function seed(){let n=0;const ex=[],rt=[];
  const E=(name,m,u,w,r)=>{const id=++n;ex.push({id,name,ms:[].concat(m),u,note:'',s:w.map((x,i)=>({w:x,r:r[i]??r[0]}))});return id};
@@ -329,16 +331,38 @@ function pageHome(){
 }
 function exerciseName(id){return S.ex.find(x=>x.id==id)?.name||'Ejercicio eliminado'}
 function exercise(id){return S.ex.find(x=>x.id==id)}
-function seriesHTML(sets,e){return (sets||e?.s||[]).map((s,i)=>`<span class="exercise-set">${i+1} · ${escapeHtml(s.w)} ${escapeHtml(e?.u||'')} × ${escapeHtml(s.r)}</span>`).join('')}
+function sessionElapsedMs(pg=S.prog){if(!pg?.startedAt)return 0;return Math.max(0,Date.now()-pg.startedAt+(pg.elapsedMs||0))}
+function sessionDateTimeLabel(ts){if(!ts)return '—';return new Date(ts).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}
+function seriesHTML(sets,e){const unit=(e?.u||'kg').trim();return `<div class="set-board">${(sets||e?.s||[]).map(s=>`<div class="set-card"><div class="set-col"><span class="set-label">${escapeHtml(unit)}</span><strong>${escapeHtml(s.w)}</strong></div><div class="set-col"><span class="set-label">Reps</span><strong>${escapeHtml(s.r)}</strong></div></div>`).join('')}</div>`}
+function buildSessionSummary(pg){
+ const routine=S.rt.find(r=>r.id==pg?.r);
+ const allLogs=(S.hist||[]).filter(x=>x.stageId===S.activeId&&x.d===pg?.d&&pg?.done?.includes(x.e));
+ const unique=new Map();
+ allLogs.forEach(log=>{if(!unique.has(log.e))unique.set(log.e,log)});
+ const logs=[...unique.values()];
+ const duration=formatDuration(sessionElapsedMs(pg));
+ const list=logs.map(log=>{const e=exercise(log.e);const unit=(e?.u||'').trim();const sets=(log.s||[]).map(x=>`${x.w}${unit?` ${unit}`:''} x ${x.r}`).join(' · ');return `- ${exerciseName(log.e)}: ${sets}`}).join('\n');
+ const title=`Rutina: ${routine?.name||'Entrenamiento'} (${pg?.d||iso()})`;
+ const summary=`${title}\nDuración: ${duration}\nEjercicios completados: ${logs.length} de ${pg?.sel?.length||logs.length}\n\n${list||'- Sin ejercicios registrados'}`;
+ const prompt=`Tomá este resumen de entrenamiento y devolveme SOLO un JSON con este formato: {"fecha":"AAAA-MM-DD","kcal_quemadas_gym":0,"duracion_min":0,"resumen":""}. Si necesitás estimar calorías, hacelo en base a la duración y a los ejercicios realizados.\n\n${summary}`;
+ return {routineName:routine?.name||'Entrenamiento',duration,completed:logs.length,total:pg?.sel?.length||logs.length,summary,prompt,startLabel:sessionDateTimeLabel(pg?.startedAt)}
+}
+function openSessionSummary(summary){
+ showModal('Resumen del entrenamiento',`<div class="stack"><div class="cards-2"><div class="muted-box"><div class="stat-label">Rutina</div><strong>${escapeHtml(summary.routineName)}</strong></div><div class="muted-box"><div class="stat-label">Tiempo</div><strong>${escapeHtml(summary.duration)}</strong></div></div><div class="muted-box"><div class="stat-label">Resumen para vos</div><textarea readonly rows="8">${escapeHtml(summary.summary)}</textarea></div><div class="muted-box"><div class="stat-label">Prompt para IA</div><textarea readonly rows="12">${escapeHtml(summary.prompt)}</textarea><div class="field-note">Podés copiar esto y pegarlo en tu chat para pedir calorías quemadas o un bloque JSON.</div></div></div>`,[{label:'Cerrar',onClick:()=>{}},{label:'Copiar resumen',onClick:()=>navigator.clipboard?.writeText(summary.summary).then(()=>toast('Resumen copiado')).catch(()=>toast('No se pudo copiar'))},{label:'Copiar prompt IA',kind:'primary',onClick:()=>navigator.clipboard?.writeText(summary.prompt).then(()=>toast('Prompt copiado')).catch(()=>toast('No se pudo copiar'))}])
+}
 function routineCard(r){
  const count=(r.items||[]).length;
  return `<div class="list-item"><div class="badge-round large-icon">🏋</div><div class="maintext"><strong>${escapeHtml(r.name)}</strong><small>${escapeHtml(D[r.day])} · ${count} ejercicios · ${r.need||count} previstos</small></div>${editing()?`<button class="btn sm primary" data-action="routine-start" data-id="${r.id}">Empezar</button>`:''}</div>`;
 }
 function session(){
  const pg=S.prog;if(!pg||pg.stageId!==S.activeId||pg.d!==iso())return '';
+ if(!pg.startedAt){pg.startedAt=Date.now();persist()}
  const r=S.rt.find(r=>r.id==pg.r);if(!r)return '';
- const sel=pg.sel||[],done=pg.done||[];
- return `<div class="content">${sectionTitle('Entrenamiento en curso',r.name)}<div class="card"><div class="row between"><div><h2>${done.length} / ${sel.length} ejercicios</h2><p class="small muted">Se guarda el progreso mientras entrenás.</p></div>${pill(D[r.day])}</div>${progressBar(done.length/Math.max(sel.length,1)*100)}</div><div class="card"><div class="card-title"><h2>Mis ejercicios</h2><button class="btn sm" data-action="session-add">+ Agregar</button></div><div class="list-items">${sel.map((id,i)=>{const e=exercise(id);if(!e)return '';return `<div class="list-item session-step ${done.includes(id)?'done':''}"><div class="badge-round">${done.includes(id)?'✓':i+1}</div><div class="maintext"><strong>${escapeHtml(e.name)}</strong><div class="exercise-sets">${seriesHTML(e.s,e)}</div>${e.note?`<small>📝 ${escapeHtml(e.note)}</small>`:''}</div><div class="item-actions">${!done.includes(id)?`<button class="btn sm primary" data-action="session-log" data-id="${id}">Hecho</button><button class="btn sm" data-action="session-edit" data-id="${id}">Editar</button><button class="btn sm ghost" data-action="session-skip" data-id="${id}">Quitar</button>`:'<span class="pill good">Listo</span>'}</div></div>`}).join('')}</div></div><div class="btn-row"><button class="btn primary" data-action="session-finish">Finalizar sesión</button><button class="btn ghost" data-action="session-cancel">Descartar sesión en curso</button></div></div>`;
+ const sel=pg.sel||[],done=pg.done||[],remaining=Math.max(sel.length-done.length,0);
+ return `<div class="content">${sectionTitle('Entrenamiento en curso',r.name)}
+ <div class="card"><div class="session-overview"><div><h2>${done.length} / ${sel.length} ejercicios</h2><p class="small muted">Se guarda el progreso mientras entrenás.</p></div><div class="session-timer-box"><span class="set-label">Tiempo</span><strong class="session-timer" data-live-timer>${formatDuration(sessionElapsedMs(pg))}</strong><small class="muted">Empezaste ${sessionDateTimeLabel(pg.startedAt)}</small></div></div>${progressBar(done.length/Math.max(sel.length,1)*100)}<div class="row wrap between"><small class="muted">${remaining?remaining+' ejercicio(s) pendiente(s)':''}${!remaining?'¡Rutina lista para cerrar!':''}</small>${pill(D[r.day])}</div></div>
+ <div class="card"><div class="card-title"><h2>Mis ejercicios</h2><button class="btn sm" data-action="session-add">+ Agregar</button></div><div class="session-list">${sel.map((id,i)=>{const e=exercise(id);if(!e)return '';return `<article class="session-card ${done.includes(id)?'done':''}"><div class="session-card-top"><div class="session-order">${done.includes(id)?'✓':i+1}</div><div class="grow"><strong>${escapeHtml(e.name)}</strong>${e.note?`<small>📝 ${escapeHtml(e.note)}</small>`:''}</div>${done.includes(id)?'<span class="pill good">Listo</span>':''}</div><div class="session-series">${seriesHTML(e.s,e)}</div>${!done.includes(id)?`<div class="item-actions stack-actions"><button class="btn sm primary" data-action="session-log" data-id="${id}">Hecho</button><button class="btn sm" data-action="session-edit" data-id="${id}">Editar</button><button class="btn sm ghost" data-action="session-skip" data-id="${id}">Quitar</button></div>`:''}</article>`}).join('')}</div></div>
+ <div class="btn-row"><button class="btn primary" data-action="session-finish">Finalizar sesión</button><button class="btn ghost" data-action="session-cancel">Descartar sesión en curso</button></div></div>`;
 }
 function foodRow(r){const valid=r.kcal>0&&r.burn>0;return `<tr><td>${escapeHtml(r.d)}</td><td>${r.kcal!==null?fmt(r.kcal):'—'}</td><td>${r.burn!==null?fmt(r.burn):'—'}</td><td class="${valid?(r.burn>=r.kcal?'text-green':'text-amber'):'muted'}">${valid?fmt(r.burn-r.kcal):'Incompleto'}</td><td>${editing()?`<button class="btn sm ghost" data-action="food-edit" data-date="${r.d}">✎</button><button class="btn sm danger" data-action="food-delete" data-date="${r.d}" aria-label="Eliminar registro">×</button>`:''}</td></tr>`}
 function pageFood(){
@@ -361,9 +385,25 @@ function checkpointStatus(){
  ${cks.length?`<div class="table-wrap mt"><table class="table"><thead><tr><th>Umbral</th><th>Alcanzado</th><th>Pesaje</th><th>Resultado real vs. inicial</th></tr></thead><tbody>${[...cks].reverse().map(c=>`<tr><td>${fmt(c.targetNet)} kcal</td><td>${c.dateReached}</td><td>${c.measuredKg===null?'<span class="text-amber">Pendiente</span>':fmt(c.measuredKg,1)+' kg'}</td><td>${c.measuredKg!==null&&baseline!==null?fmt(baseline-c.measuredKg,2)+' kg menos':'—'}</td></tr>`).join('')}</tbody></table></div>`:''}
  <p class="no-data-note">Unos 7.700 kcal equivalen aproximadamente a la energía de 1 kg de grasa, pero el peso total puede comportarse distinto. El gasto de Gemini es una estimación.</p></div>`;
 }
+function bmiInfo(bmi){
+ if(!Number.isFinite(bmi))return null;
+ if(bmi<18.5)return {label:'Bajo peso',color:'var(--blue)'};
+ if(bmi<25)return {label:'Normal',color:'var(--green)'};
+ if(bmi<30)return {label:'Sobrepeso',color:'var(--amber)'};
+ return {label:'Obesidad',color:'var(--accent)'};
+}
+function bmiGauge(bmi){
+ if(!Number.isFinite(bmi))return '';
+ const min=15,max=40;
+ const clamp=Math.max(min,Math.min(max,bmi));
+ const pos=((clamp-min)/(max-min))*100;
+ const info=bmiInfo(bmi);
+ return `<div class="bmi-gauge-wrap"><div class="bmi-gauge" aria-hidden="true"><div class="bmi-seg low"></div><div class="bmi-seg normal"></div><div class="bmi-seg high"></div><div class="bmi-seg veryhigh"></div><div class="bmi-needle" style="left:${pos}%"></div></div><div class="bmi-scale"><span>15</span><span>18.5</span><span>25</span><span>30</span><span>40</span></div><div class="row wrap between" style="margin-top:8px;gap:8px"><span class="pill neutral" style="border:1px solid var(--edge)">${escapeHtml(info.label)}</span><small class="muted">Bajo peso &lt; 18.5 · Normal 18.5–24.9 · Sobrepeso 25–29.9 · Obesidad ≥ 30</small></div><p class="bmi-healthy-note"><strong>Rango de referencia considerado normal:</strong> IMC entre 18,5 y 24,9 en adultos. Es orientativo y no evalúa por sí solo tu salud ni tu composición corporal.</p></div>`
+}
+
 function metabolicCard(){
  const m=metabolicMetrics(),missingBMI=m.needsBMI,missingTMB=m.needsTMB;
- const card=(label,value,unit,details,pending)=>`<div class="metabolic-stat"><div class="stat-label">${label}</div><div class="metabolic-value num ${pending?'pending-value':''}">${pending?'Pendiente de carga':fmt(value,1)}${pending?'':` <span class="stat-unit">${unit}</span>`}</div><p class="stat-sub">${pending?`Falta: ${escapeHtml(details.join(', '))}`:escapeHtml(label==='IMC'?m.source+' · '+fmt(m.weight,1)+' kg':'Estimación en reposo · '+m.age+' años')}</p></div>`;
+ const card=(label,value,unit,details,pending)=>`<div class="metabolic-stat"><div class="stat-label">${label}</div><div class="metabolic-value num ${pending?'pending-value':''}">${pending?'Pendiente de carga':fmt(value,1)}${pending?'':` <span class="stat-unit">${unit}</span>`}</div><p class="stat-sub">${pending?`Falta: ${escapeHtml(details.join(', '))}`:escapeHtml(label==='IMC · Índice de masa corporal'?m.source+' · '+fmt(m.weight,1)+' kg':'Estimación en reposo · '+m.age+' años')}</p>${label==='IMC · Índice de masa corporal'&&!pending?bmiGauge(m.bmi):''}</div>`;
  return `<div class="card"><div class="card-title"><div><h2>Indicadores corporales</h2><p class="small muted">Se actualizan con tu peso más reciente y los datos de tu perfil.</p></div>${editing()?'<button class="btn sm" data-action="profile-edit">✎ Completar perfil</button>':''}</div>
  <div class="metabolic-grid">${card('IMC · Índice de masa corporal',m.bmi,'kg/m²',missingBMI,m.bmi===null)}${card('TMB · Metabolismo basal',m.tmb,'kcal/día',missingTMB,m.tmb===null)}</div>
  <p class="no-data-note">El IMC se calcula con peso y estatura, sin usar género. La TMB se estima con Mifflin-St Jeor usando peso, estatura, edad y el parámetro de fórmula elegido. La ecuación aproxima el gasto en reposo, no tu gasto total diario; ambos indicadores son orientativos.</p></div>`;
@@ -561,7 +601,7 @@ function startSession(id){
  }
  const selected=(r.items||[]).filter(it=>!it.opt).map(it=>it.e);
  // Optional exercises are offered separately; do not silently add them.
- S.prog={d:iso(),stageId:S.activeId,r:r.id,sel:selected,done:[]};
+ S.prog={d:iso(),stageId:S.activeId,r:r.id,sel:selected,done:[],startedAt:Date.now(),elapsedMs:0};
  persist();ui.page='gym';render();window.scrollTo(0,0);
 }
 function logExercise(id,sets=null){
@@ -603,9 +643,11 @@ function finishSession(){
  if(!S.prog)return;
  const incomplete=S.prog.sel.length-S.prog.done.length;
  const execute=()=>{
+  const snapshot=JSON.parse(JSON.stringify(S.prog));
   const gymHabit=S.chk.find(c=>/ir al gym/i.test(c.t))||S.chk.find(c=>/^gym/i.test(c.t));
-  if(gymHabit&&S.prog.done.length){const key=S.activeId+'|'+iso();S.chkLog[key]=S.chkLog[key]||{};S.chkLog[key][gymHabit.id]=true}
-  S.prog=null;persist();render();toast('¡Rutina terminada! 💗');
+  if(gymHabit&&snapshot.done.length){const key=S.activeId+'|'+iso();S.chkLog[key]=S.chkLog[key]||{};S.chkLog[key][gymHabit.id]=true}
+  const summary=buildSessionSummary(snapshot);
+  S.prog=null;persist();render();toast('¡Rutina terminada! 💗');openSessionSummary(summary);
  };
  if(incomplete)return confirmModal('¿Finalizar la sesión?',`Te quedan ${incomplete} ejercicios por marcar. Los que completaste ya están guardados.`,execute,'Finalizar');
  execute();
@@ -752,3 +794,6 @@ function editHistoricExercise(index){
   record.s=rows;persist();render();toast('Registro corregido');
  }}],{onOpen:renderRows});
 }
+
+function refreshLiveTimer(){const el=document.querySelector('[data-live-timer]');if(!el||!S.prog)return;el.textContent=formatDuration(sessionElapsedMs(S.prog))}
+setInterval(refreshLiveTimer,1000);
