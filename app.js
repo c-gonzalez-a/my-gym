@@ -1,4 +1,4 @@
-/* Mi Gym 2.5 — vanilla JavaScript, sin cuentas ni servidor. */
+/* Mi Gym 2.6 — vanilla JavaScript, sin cuentas ni servidor. */
 'use strict';
 const KEY='migym-v2', LEGACY_KEY='gymapp1', D=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 const BF=['cintura','cadera','brazo','pierna','pecho'], CAP=3;
@@ -27,7 +27,7 @@ function seed(){let n=0;const ex=[],rt=[];
  const c=E('Algo para el costado','glúteo','kg',['0'],['10']);
  R(54,'Glúteo y cuádriceps',5,[E('Prensa de piernas pies altos','cuádriceps','kg',['90','110','110','110'],['10','10','10','fallo']),E('Búlgara en smith','cuádriceps','kg',['10','10','15'],['8','8','fallo (7)']),E('Hip thrust máquina (10 – sostengo 10 – 10)','glúteo','kg',['15','20','25'],['10','10','fallo (10)']),E('Sillón de cuádriceps','cuádriceps','ladrillos',['4','5','6','dropset'],['12','10','8','7-5']),c,E('Patada de glúteo','glúteo','ladrillos',['3','3','4'],['12'])],[c]);
  return{ex,rt,hist:[],body:[],n:100}}
-function seedChk(){return['Ir al gym','Tomar 2,5 litros de agua','No comer carbos simples','No comer azúcares agregados','No pasar el límite de kcal del día','Hacer todo el cardio del día'].map((t,i)=>({id:'c'+i,t}))}
+function seedChk(){return['Hacer la actividad que planifiqué','Tomar agua durante el día','Registrar mi alimentación','Priorizar proteínas en mis comidas','Dedicarme un momento de descanso'].map((t,i)=>({id:'c'+i,t}))}
 function seedPlan(){const P=(max,...items)=>({max,items});return{0:P(1045,'Cardio y core en casa (~350 kcal)'),1:P(1225,'Cardio: salto de soga 22 min (40 s activos, 20 s pausa)','Gym: glúteo y femoral'),
  2:P(1350,'Gym a la tarde: brazos, pecho y core','Post gym: caminata de 30 min (~250 kcal)'),3:P(1045,'Salto de soga + cardio de YouTube (meta ~350 kcal en las sesiones de cardio en casa)'),
  4:P(1290,'Día libre, sin entrenamiento'),5:P(1130,'Ir caminando al gym','Gym: glúteo y cuádriceps'),6:P(1440,'Caminar al gym','Gym: espalda y core','Volver caminando a casa','Pileta 2 h')}}
@@ -64,7 +64,7 @@ function validateLoaded(obj){
  if(!obj||typeof obj!=='object')throw Error('El archivo no contiene datos válidos');
  if(obj.version===2){
   if(!Array.isArray(obj.stages)||!Array.isArray(obj.ex)||!Array.isArray(obj.rt)||!Array.isArray(obj.hist)||!Array.isArray(obj.food)||!Array.isArray(obj.body)||!Array.isArray(obj.chk)||!obj.stages.some(s=>s.id===obj.activeId))throw Error('El backup v2 está incompleto');
-  return {...obj,profile:normalizeProfile(obj.profile),sessions:Array.isArray(obj.sessions)?obj.sessions:[],plan:obj.plan||seedPlan(),chkLog:obj.chkLog||{},prog:obj.prog||null,n:obj.n||100,theme:['auto','dark','light'].includes(obj.theme)?obj.theme:'auto'};
+  return {...obj,profile:normalizeProfile(obj.profile),sessions:Array.isArray(obj.sessions)?obj.sessions:[],plan:obj.plan||seedPlan(),chkLog:obj.chkLog||{},prog:obj.prog||null,preferences:obj.preferences&&typeof obj.preferences==='object'?obj.preferences:{},n:obj.n||100,theme:['auto','dark','light'].includes(obj.theme)?obj.theme:'auto'};
  }
  if(Array.isArray(obj.ex)&&Array.isArray(obj.rt))return normalizeLegacy(obj);
  throw Error('No es un backup de Mi Gym');
@@ -78,7 +78,7 @@ try{
  STATE=current?validateLoaded(JSON.parse(current)):old?normalizeLegacy(JSON.parse(old)):normalizeLegacy({...seed(),plan:Object.fromEntries(Object.entries(seedPlan()).map(([day,p])=>[day,{...p,max:0}]))});
 }catch(e){console.error('Error loading local data',e);STATE=normalizeLegacy({...seed(),plan:Object.fromEntries(Object.entries(seedPlan()).map(([day,p])=>[day,{...p,max:0}]))});storageOk=false;storageReadError=true}
 const S=STATE;
-const ui={page:'inicio',period:30,viewStage:null,calendarOffset:0,exerciseId:null,activityMonthOffset:0};
+const ui={page:'inicio',period:30,viewStage:null,calendarOffset:0,exerciseId:null,activityMonthOffset:0,historyPage:0,gymMetric:'weight',weightTrend:false,compareFrom:'',compareTo:''};
 function persist(){
  // Un archivo local dañado no se debe sobrescribir silenciosamente por datos vacíos.
  if(storageReadError){storageOk=false;toast('No se guardó: recuperá tu backup desde Ajustes');return}
@@ -173,9 +173,12 @@ function deleteRecord(type,d){
 }
 function escapeAttr(s){return escapeHtml(s)}
 function progressBar(percent){return `<div class="progress"><i style="width:${Math.max(0,Math.min(100,percent)).toFixed(1)}%"></i></div>`}
-function newStage(name,weight){
- const st=activeStage();st.archivedAt=iso();
- const next={id:'stage-'+uid(),name:name.trim()||'Nueva etapa',start:iso(),archivedAt:null,baseWeight:weight,checkpoints:[],targetNote:''};
+function newStage(name,weight,startDate=iso()){
+ if(!validDate(startDate)||startDate>iso()||startDate<=activeStage().start)throw Error('La nueva etapa debe empezar después de la fecha de inicio de la actual y no puede ser futura');
+ if(['hist','food','body'].some(type=>recActive(type).some(x=>x.d>=startDate)))throw Error('Ya tenés registros de esta etapa en esa fecha o después. Elegí una fecha posterior para no ocultarlos.');
+ if(S.prog)throw Error('Finalizá o descartá el entrenamiento en curso antes de iniciar una etapa nueva.');
+ const st=activeStage();st.archivedAt=shiftDay(startDate,-1);
+ const next={id:'stage-'+uid(),name:name.trim()||'Nueva etapa',start:startDate,archivedAt:null,baseWeight:weight,checkpoints:[],targetNote:''};
  S.stages.push(next);S.activeId=next.id;S.prog=null;ui.viewStage=null;ui.page='inicio';ui.period=30;ui.calendarOffset=0;persist();render();toast('Nueva etapa creada. El historial quedó archivado.');
 }
 function toast(msg){const x=$('#toast');if(!x)return;x.textContent=msg;x.classList.add('show');clearTimeout(toast.timeout);toast.timeout=setTimeout(()=>x.classList.remove('show'),3600)}
@@ -183,7 +186,7 @@ function exportBackup(){
  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
  a.href=url;a.download='mi-gym-backup-'+iso()+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
 }
-function exportJSON(){exportBackup();toast('Se generó tu copia de seguridad')}
+function exportJSON(){exportBackup();S.lastBackupRequest=Date.now();persist();render();toast('Descarga solicitada. Verificá que el JSON esté en Descargas.')}
 /* ---------- Calendars and time-correct SVG charts ---------- */
 function rangeDates(n,end=stageEnd()){
  const start=shiftDay(end,-(n-1)),out=[];
@@ -279,7 +282,7 @@ function calendar(monthOffset=ui.calendarOffset){
  for(let i=1;i<=days;i++){
   const d=iso(new Date(year,month,i,12)),future=d>stageEnd()||d<stage().start,
    dots=`${f.has(d)?'<i class="dot food" title="Alimentación registrada"></i>':''}${h.has(d)?'<i class="dot gym" title="Gym registrado"></i>':''}${b.has(d)?'<i class="dot body" title="Peso o medidas registrados"></i>':''}`;
-  boxes+=`<div class="day ${d===iso()?'today':''} ${future?'future':''}" title="${d}${!dots?' · Sin registros':''}"><span class="day-num">${i}</span><span class="dots">${dots}</span></div>`;
+  boxes+=h.has(d)?`<button type="button" class="day day-button ${d===iso()?'today':''}" data-action="gym-history" data-date="${d}" title="Ver entrenamiento del ${d}"><span class="day-num">${i}</span><span class="dots">${dots}</span></button>`:`<div class="day ${d===iso()?'today':''} ${future?'future':''}" title="${d}${!dots?' · Sin registros':''}"><span class="day-num">${i}</span><span class="dots">${dots}</span></div>`;
  }
  const title=base.toLocaleDateString('es-AR',{month:'long',year:'numeric'});
  return `<div class="card"><div class="card-title"><h2>Calendario de registros</h2><div class="btn-row"><button class="btn sm ghost" data-action="month-prev" aria-label="Mes anterior">‹</button><span class="pill neutral">${escapeHtml(title)}</span><button class="btn sm ghost" data-action="month-next" ${monthOffset>=0?'disabled':''} aria-label="Mes siguiente">›</button></div></div><div class="calendar-head">${['L','M','X','J','V','S','D'].map(a=>`<div>${a}</div>`).join('')}</div><div class="calendar">${boxes}</div><div class="calendar-legend"><span>🩷 Alimentación</span><span>🟣 Gym</span><span>🟢 Medidas</span><span>Sin puntos = sin registro</span></div></div>`;
@@ -314,6 +317,11 @@ function render(){
 function sectionTitle(title,subtitle){return `<div class="page-heading"><div class="eyebrow">${escapeHtml(subtitle)}</div><h1>${escapeHtml(title)}</h1></div>`}
 function pill(text,type='neutral'){return `<span class="pill ${type}">${escapeHtml(text)}</span>`}
 function stat(label,value,unit='',sub=''){return `<div class="card"><div class="stat-label">${escapeHtml(label)}</div><div class="stat-value num">${value}<span class="stat-unit"> ${unit}</span></div>${sub?`<div class="stat-sub">${sub}</div>`:''}</div>`}
+function backupDue(){
+ const anyData=(S.hist||[]).length||(S.food||[]).length||(S.body||[]).length;
+ return !!anyData&&(!Number.isFinite(S.lastBackupRequest)||Date.now()-S.lastBackupRequest>14*86400000);
+}
+function backupReminder(){return editing()&&backupDue()?`<div class="alert backup-alert"><div class="alert-ic">💾</div><div class="grow"><h3>Protegé tus registros</h3><p class="small muted">Hace tiempo que no solicitás un backup. Descargá un JSON y comprobá que quedó guardado en Descargas.</p></div><button class="btn sm" data-action="export">Descargar</button></div>`:''}
 function promptAlerts(){
  if(!editing())return '';
  const due=measureDue(),pending=milestones();
@@ -326,10 +334,11 @@ function pageHome(){
  const {total,complete}=netData(),pending=editing()?milestones():[],towardNext=total>=0?total%7700:0,progress=pending.length?100:towardNext/7700*100,weight=lastBody();
  const plan=pl.items||[],todayList=editing()?`<div class="card"><div class="card-title"><div><h2>Tu plan de hoy</h2><div class="small muted">${escapeHtml(D[localDate(today).getDay()])} · ${escapeHtml(today)}</div></div><button class="btn sm ghost" data-action="plan-edit">Editar</button></div>${plan.length?`<div class="list-items">${plan.map(x=>`<div class="list-item"><span>✦</span><span>${escapeHtml(x)}</span></div>`).join('')}</div>`:'<p class="muted">Sin actividades planificadas para hoy.</p>'}${pl.max?`<div class="no-data-note">Referencia de kcal configurada: ${fmt(pl.max)} kcal. <strong>Revisá que sea adecuada para vos.</strong></div>`:''}</div>`:'';
  const checks=editing()?`<div class="card"><div class="card-title"><h2>Checklist de hoy</h2><button class="btn sm ghost" data-action="checklist-history">Ver constancia</button></div>${S.chk.map(c=>`<label class="checkline"><input type="checkbox" data-checkid="${escapeAttr(c.id)}" ${chkValues(today)[c.id]?'checked':''}><span>${escapeHtml(c.t)}</span></label>`).join('')||'<div class="nothing">Todavía no hay hábitos configurados.</div>'}<p class="small muted mt">No registrar un día no significa haber incumplido.</p></div>`:'';
- return `<div class="content"><div class="hero"><div><div class="eyebrow">${escapeHtml(new Date().toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'}))}</div><h1 style="margin-top:7px">Tu progreso,<br><span class="text-accent">paso a paso.</span></h1><p class="lead">Entrená, registrá y mirá cómo evolucionás. Sin presión por los días en blanco.</p><div class="hero-actions"><button class="btn primary" data-action="nav" data-page="gym">Ver mis rutinas</button><button class="btn" data-action="nav" data-page="alimentacion">Registrar comida</button></div></div><div class="hero-emoji">💗</div></div>${promptAlerts()}
+ return `<div class="content"><div class="hero"><div><div class="eyebrow">${escapeHtml(new Date().toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'}))}</div><h1 style="margin-top:7px">Tu progreso,<br><span class="text-accent">paso a paso.</span></h1><p class="lead">Entrená, registrá y mirá cómo evolucionás. Sin presión por los días en blanco.</p><div class="hero-actions"><button class="btn primary" data-action="nav" data-page="gym">${S.prog&&editing()?'▶ Retomar entrenamiento':'🏋 Mis rutinas'}</button>${editing()?'<button class="btn" data-action="food-paste">Pegar de Gemini</button>':'<button class="btn" data-action="nav" data-page="alimentacion">Ver comidas</button>'}</div></div><div class="hero-emoji">💗</div></div>${promptAlerts()}${backupReminder()}
+ ${editing()?`<div class="home-quick-actions"><button class="btn" data-action="body-add">⚖️ Anotar peso</button><button class="btn" data-action="food-add">🍽️ Cargar comidas</button><button class="btn" data-action="nav" data-page="gym">🏋 Gym</button></div>`:''}
  <div class="cards-3">${stat('Déficit neto',fmt(total),'kcal',`${complete} ${complete===1?'día completo':'días completos'} · dato estimado`)}${stat('Gym esta semana',fmt(nTrained),'/ 7 días','Solo días con ejercicios anotados')}${stat('Último peso',weight?fmt(weight.kg,1):'—','kg',weight?escapeHtml(weight.d):'Sin registros')}</div>
  <div class="card"><div class="card-title"><div><h2>Rumbo al próximo control</h2><div class="small muted">Equivalencia energética orientativa</div></div>${pill('7.700 kcal ≈ 1 kg')}</div><div class="row between"><strong class="num">${fmt(pending.length?7700:towardNext)} / 7.700 kcal</strong>${pill(total<0?'Balance en superávit':Math.floor(Math.max(0,total)/7700)+' umbral(es) alcanzados',total<0?'warn':'neutral')}</div>${progressBar(progress)}<p class="no-data-note">Las kcal no predicen exactamente el peso: líquidos, ciclo, actividad y errores de estimación influyen.</p></div>
- <div class="cards-2 home-columns">${todayList}<div class="card"><div class="card-title"><h2>Hoy en números</h2>${todayFood&&todayFood.kcal>0?pill('Registrado','good'):pill('Sin registrar')}</div><div class="stack"><div class="row between"><span class="muted">Comidas</span><strong>${todayFood?fmt(todayFood.kcal)+' kcal':'—'}</strong></div><div class="divider"></div><div class="row between"><span class="muted">Gasto estimado</span><strong>${todayFood&&todayFood.burn?fmt(todayFood.burn)+' kcal':'—'}</strong></div><div class="divider"></div><div class="row between"><span class="muted">Balance</span><strong>${todayFood&&todayFood.burn?fmt(todayFood.burn-todayFood.kcal)+' kcal':'Sin datos suficientes'}</strong></div></div>${editing()?'<button class="btn full mt" data-action="food-add">Cargar o editar día</button>':''}</div></div>${checks}${calendar()}</div>`;
+ <div class="cards-2 home-columns">${todayList}<div class="card"><div class="card-title"><h2>Hoy en números</h2>${todayFood&&todayFood.kcal>0?pill('Registrado','good'):pill('Sin registrar')}</div><div class="stack"><div class="row between"><span class="muted">Comidas</span><strong>${todayFood?.kcal!=null?fmt(todayFood.kcal)+' kcal':'—'}</strong></div><div class="divider"></div><div class="row between"><span class="muted">Proteínas</span><strong>${Number.isFinite(todayFood?.p)?fmt(todayFood.p,1)+' g'+(Number.isFinite(S.preferences?.proteinGoal)?' / '+fmt(S.preferences.proteinGoal)+' g':''):'—'}</strong></div><div class="divider"></div><div class="row between"><span class="muted">Gasto estimado</span><strong>${todayFood&&todayFood.burn?fmt(todayFood.burn)+' kcal':'—'}</strong></div><div class="divider"></div><div class="row between"><span class="muted">Balance</span><strong>${todayFood&&todayFood.burn?fmt(todayFood.burn-todayFood.kcal)+' kcal':'Sin datos suficientes'}</strong></div></div>${editing()?'<button class="btn full mt" data-action="food-add">Cargar o editar día</button>':''}</div></div>${checks}${calendar()}</div>`;
 }
 function exerciseName(id){return S.ex.find(x=>x.id==id)?.name||'Ejercicio eliminado'}
 function exercise(id){return S.ex.find(x=>x.id==id)}
@@ -353,8 +362,19 @@ function buildSessionSummary(pg,endedAt=Date.now()){
  const routine=S.rt.find(r=>r.id==pg?.r),logs=sessionLogs(pg);
  const durationMs=pg?.startedAt?Math.max(0,endedAt-pg.startedAt+(pg.elapsedMs||0)):null;
  const duration=durationMs===null?'No registrada':formatDuration(durationMs);
- const summary=`Rutina: ${routine?.name||'Entrenamiento'} (${pg?.d||iso()})\nDuración: ${duration}\nEjercicios completados: ${logs.length} de ${pg?.sel?.length??logs.length}\n\n${logs.map(exerciseSummaryLine).join('\n')||'• Sin ejercicios registrados'}`;
- return {routineName:routine?.name||'Entrenamiento',duration,durationMs,completed:logs.length,total:pg?.sel?.length??logs.length,summary,prompt:workoutPrompt(summary),logs};
+ // Personal bests compare only against earlier sessions, never the one being finished.
+ const achievements=[];
+ logs.forEach(log=>{
+  const current=gymExerciseMetric(log,'weight');
+  if(!Number.isFinite(current))return;
+  const prior=S.hist.filter(item=>item.e==log.e&&item!==log&&item.sessionId!==pg.id&&item.d<=pg.d).map(item=>gymExerciseMetric(item,'weight')).filter(Number.isFinite);
+  if(!prior.length)return;
+  const previous=Math.max(...prior);
+  if(current>previous){const unit=exercise(log.e)?.u||'kg';achievements.push(`🏆 ${exerciseName(log.e)}: ${fmt(current,2)} ${unit} (antes ${fmt(previous,2)} ${unit})`)}
+ });
+ const base=`Rutina: ${routine?.name||'Entrenamiento'} (${pg?.d||iso()})\nDuración: ${duration}\nEjercicios completados: ${logs.length} de ${pg?.sel?.length??logs.length}\n\n${logs.map(exerciseSummaryLine).join('\n')||'• Sin ejercicios registrados'}`;
+ const summary=base+(achievements.length?'\n\nNuevos récords personales:\n'+achievements.join('\n'):'');
+ return {routineName:routine?.name||'Entrenamiento',duration,durationMs,completed:logs.length,total:pg?.sel?.length??logs.length,summary,prompt:workoutPrompt(summary),logs,achievements};
 }
 function copyText(text,source,label='Texto'){
  const fallback=()=>{
@@ -373,7 +393,7 @@ function copyText(text,source,label='Texto'){
  }else fallback();
 }
 function openSessionSummary(summary){
- showModal('Resumen del entrenamiento',`<div class="stack"><div class="cards-2"><div class="muted-box"><div class="stat-label">Rutina</div><strong>${escapeHtml(summary.routineName)}</strong></div><div class="muted-box"><div class="stat-label">Tiempo</div><strong>${escapeHtml(summary.duration)}</strong></div></div><div class="muted-box"><div class="stat-label">Resumen para vos</div><textarea data-copy-summary readonly rows="8">${escapeHtml(summary.summary)}</textarea></div><div class="muted-box"><div class="stat-label">Prompt para IA</div><textarea data-copy-prompt readonly rows="10">${escapeHtml(summary.prompt)}</textarea><div class="field-note">El gasto del gimnasio es distinto del gasto energético total diario de Comidas.</div></div></div>`,[
+ showModal('Resumen del entrenamiento',`<div class="stack"><div class="cards-2"><div class="muted-box"><div class="stat-label">Rutina</div><strong>${escapeHtml(summary.routineName)}</strong></div><div class="muted-box"><div class="stat-label">Tiempo</div><strong>${escapeHtml(summary.duration)}</strong></div></div>${summary.achievements?.length?`<div class="muted-box"><div class="stat-label">🏆 Nuevos récords personales</div>${summary.achievements.map(a=>`<p class="small"><strong>${escapeHtml(a)}</strong></p>`).join('')}</div>`:''}<div class="muted-box"><div class="stat-label">Resumen para vos</div><textarea data-copy-summary readonly rows="8">${escapeHtml(summary.summary)}</textarea></div><div class="muted-box"><div class="stat-label">Prompt para IA</div><textarea data-copy-prompt readonly rows="10">${escapeHtml(summary.prompt)}</textarea><div class="field-note">El gasto del gimnasio es distinto del gasto energético total diario de Comidas.</div></div></div>`,[
   {label:'Cerrar',onClick:()=>{}},
   {label:'📋 Copiar resumen',onClick:el=>{copyText(summary.summary,el.querySelector('[data-copy-summary]'),'Resumen');return false}},
   {label:'📋 Copiar prompt IA',kind:'primary',onClick:el=>{copyText(summary.prompt,el.querySelector('[data-copy-prompt]'),'Prompt');return false}}
@@ -387,10 +407,13 @@ function session(){
  const pg=S.prog;if(!pg||pg.stageId!==S.activeId)return '';
  if(!pg.startedAt){pg.startedAt=Date.now();persist()}
  const r=S.rt.find(r=>r.id==pg.r);if(!r)return '';
+ // Backward compatibility for workouts started with earlier app versions.
+ const unviewed=(pg.sel||[]).some(id=>!Array.isArray(pg.noteSeen)||!pg.noteSeen.includes(id));
+ if(unviewed){(pg.sel||[]).forEach(id=>deliverFutureNote(pg,id));persist()}
  const sel=pg.sel||[],done=pg.done||[],remaining=Math.max(sel.length-done.length,0);
  return `<div class="content">${sectionTitle('Entrenamiento en curso',r.name)}
  <div class="card"><div class="session-overview"><div><h2>${done.length} / ${sel.length} ejercicios</h2><p class="small muted">Se guarda el progreso mientras entrenás.</p></div><div class="session-timer-box"><span class="set-label">Tiempo</span><strong class="session-timer" data-live-timer>${formatDuration(sessionElapsedMs(pg))}</strong><small class="muted">Empezaste ${sessionDateTimeLabel(pg.startedAt)}</small></div></div>${progressBar(done.length/Math.max(sel.length,1)*100)}<div class="row wrap between"><small class="muted">${remaining?remaining+' ejercicio(s) pendiente(s)':''}${!remaining?'¡Rutina lista para cerrar!':''}</small>${pill(D[r.day])}</div></div>
- <div class="card"><div class="card-title"><h2>Mis ejercicios</h2><button class="btn sm" data-action="session-add">+ Agregar</button></div><div class="session-list">${sel.map((id,i)=>{const e=exercise(id);if(!e)return '';return `<article class="session-card ${done.includes(id)?'done':''}"><div class="session-card-top"><div class="session-order">${done.includes(id)?'✓':i+1}</div><div class="grow"><strong>${escapeHtml(e.name)}</strong>${e.note?`<small>📝 ${escapeHtml(e.note)}</small>`:''}</div>${done.includes(id)?'<span class="pill good">Listo</span>':''}</div><div class="session-series">${seriesHTML(e.s,e)}</div>${!done.includes(id)?`<div class="item-actions stack-actions"><button class="btn sm primary" data-action="session-log" data-id="${id}">Hecho</button><button class="btn sm" data-action="session-edit" data-id="${id}">Editar</button><button class="btn sm ghost" data-action="session-skip" data-id="${id}">Quitar</button></div>`:''}</article>`}).join('')}</div></div>
+ <div class="card"><div class="card-title"><h2>Mis ejercicios</h2><button class="btn sm" data-action="session-add">+ Agregar</button></div><div class="session-list">${sel.map((id,i)=>{const e=exercise(id);if(!e)return '';return `<article class="session-card ${done.includes(id)?'done':''}"><div class="session-card-top"><div class="session-order">${done.includes(id)?'✓':i+1}</div><div class="grow"><strong>${escapeHtml(e.name)}</strong></div>${done.includes(id)?'<span class="pill good">Listo</span>':''}</div>${futureNoteForSession(id)?`<div class="future-note"><strong>💌 Mensaje de tu Cami anterior</strong><p>${escapeHtml(futureNoteForSession(id))}</p><small>Esta nota no volverá a aparecer en un próximo entrenamiento.</small></div>`:''}<div class="session-series">${seriesHTML(done.includes(id)?sessionLogs(pg).find(x=>x.e==id)?.s:e.s,e)}</div><div class="item-actions stack-actions">${done.includes(id)?`<button class="btn sm" data-action="session-edit" data-id="${id}">✎ Corregir series</button><button class="btn sm ghost" data-action="session-undo" data-id="${id}">Deshacer Hecho</button>`:`<button class="btn sm primary" data-action="session-log" data-id="${id}">Hecho</button><button class="btn sm" data-action="session-edit" data-id="${id}">Editar series</button><button class="btn sm ghost" data-action="session-skip" data-id="${id}">Quitar</button>`}<button class="btn sm note-button" data-action="session-note" data-id="${id}">${e.note?'✎ Editar nota futura':'💌 Nota para mi próxima vez'}</button></div></article>`}).join('')}</div></div>
  <div class="btn-row"><button class="btn primary" data-action="session-finish">Finalizar sesión</button><button class="btn ghost" data-action="session-cancel">Descartar sesión en curso</button></div></div>`;
 }
 function foodRow(r){const valid=r.kcal>0&&r.burn>0;return `<tr><td>${escapeHtml(r.d)}</td><td>${r.kcal!==null?fmt(r.kcal):'—'}</td><td>${r.burn!==null?fmt(r.burn):'—'}</td><td class="${valid?(r.burn>=r.kcal?'text-green':'text-amber'):'muted'}">${valid?fmt(r.burn-r.kcal):'Incompleto'}</td><td>${editing()?`<button class="btn sm ghost" data-action="food-edit" data-date="${r.d}">✎</button><button class="btn sm danger" data-action="food-delete" data-date="${r.d}" aria-label="Eliminar registro">×</button>`:''}</td></tr>`}
@@ -404,7 +427,30 @@ function pageFood(){
  <div class="card"><div class="card-title"><h2>Evolución de macronutrientes</h2></div>${svgMacroChart()}<div class="legend"><span><i style="background:var(--accent)"></i> Proteínas</span><span><i style="background:var(--blue)"></i> Carbohidratos</span><span><i style="background:var(--green)"></i> Grasas</span></div></div>
  <div class="card"><div class="card-title"><h2>Mis registros</h2>${pill(subset.length+' días registrados')}</div><div class="table-wrap"><table class="table"><thead><tr><th>Fecha</th><th>Comidas</th><th>Gasto est.</th><th>Balance</th><th></th></tr></thead><tbody>${subset.sort((a,b)=>b.d.localeCompare(a.d)).map(foodRow).join('')||'<tr><td colspan="5">Todavía no registraste días en este período.</td></tr>'}</tbody></table></div></div></div>`;
 }
-function measureChart(){const field=ui.chartMeasure||'kg';return svgTimeSeries(rec('body'),r=>field==='kg'?r.kg:r.m?.[field],field==='kg'?'kg':'cm')}
+function measureChart(){
+ const field=ui.chartMeasure||'kg';
+ if(field==='kg'&&ui.weightTrend){
+  const recent=[];
+  const data=rec('body').filter(x=>Number.isFinite(x.kg)).sort((a,b)=>a.d.localeCompare(b.d)).map(x=>{
+   recent.push(x.kg);if(recent.length>3)recent.shift();
+   return {...x,trend:recent.reduce((acc,value)=>acc+value,0)/recent.length};
+  });
+  return svgTimeSeries(data,x=>x.trend,'kg')+'<p class="no-data-note">Tendencia: promedio de hasta 3 pesajes anteriores, calculado sólo en fechas con pesaje. No se inventan días intermedios.</p>';
+ }
+ return svgTimeSeries(rec('body'),r=>field==='kg'?r.kg:r.m?.[field],field==='kg'?'kg':'cm');
+}
+function comparisonCard(){
+ const measures=rec('body').slice().sort((a,b)=>a.d.localeCompare(b.d));
+ if(measures.length<2)return '<div class="card"><div class="card-title"><h2>Comparar controles</h2></div><p class="small muted">Cuando tengas dos fechas de medidas, vas a poder compararlas acá.</p></div>';
+ const from=measures.find(x=>x.d===ui.compareFrom)||measures[0],to=measures.find(x=>x.d===ui.compareTo)||measures.at(-1);
+ const values=[['kg','Peso','kg'],...BF.map(k=>[k,k[0].toUpperCase()+k.slice(1),'cm'])];
+ const diffs=values.map(([key,label,unit])=>{
+  const prev=key==='kg'?from.kg:from.m?.[key],last=key==='kg'?to.kg:to.m?.[key];
+  const diff=Number.isFinite(prev)&&Number.isFinite(last)?last-prev:null;
+  return `<div class="comparison-result"><span class="muted">${label}</span><strong>${diff===null?'Sin datos en ambas fechas':`${diff>0?'+':''}${fmt(diff,1)} ${unit}`}</strong></div>`;
+ }).join('');
+ return `<div class="card"><div class="card-title"><h2>Comparar dos controles</h2></div><div class="field-grid"><div class="field"><label>Desde</label><select data-change="compare-from">${measures.map(x=>`<option value="${x.d}" ${x.d===from.d?'selected':''}>${x.d}</option>`).join('')}</select></div><div class="field"><label>Hasta</label><select data-change="compare-to">${measures.map(x=>`<option value="${x.d}" ${x.d===to.d?'selected':''}>${x.d}</option>`).join('')}</select></div></div><div class="comparison-grid">${diffs}</div><p class="no-data-note">Un cambio positivo o negativo no indica por sí solo mejoría o empeoramiento. Se comparan valores cargados, no estimaciones.</p></div>`;
+}
 function checkpointStatus(){
  const st=stage(),cks=st.checkpoints||[],last=cks.at(-1),pending=cks.filter(x=>x.measuredKg==null),baseline=st.baseWeight,lastKg=lastBody()?.kg,
   observed=baseline!=null&&lastKg!=null?baseline-lastKg:null;
@@ -443,7 +489,8 @@ function pageProgress(){
  <div class="row between wrap"><div class="btn-row">${periodButtons()}</div>${editing()?'<button class="btn primary" data-action="body-add">+ Cargar peso / medidas</button>':''}</div>
  <div class="cards-3">${stat('Peso inicial',stage().baseWeight!==null?fmt(stage().baseWeight,1):'—','kg','Inicio de etapa')}${stat('Último pesaje',lastBody()?fmt(lastBody().kg,1):'—','kg',lastBody()?.d||'Sin registros')}${stat('Cobertura',coverageCount('body',dates)+' / '+daysTracked(dates),'días','Días con mediciones')}</div>
  ${metabolicCard()}
- <div class="card"><div class="card-title"><h2>Evolución con fechas reales</h2><div class="btn-row"><button class="choice ${(!ui.chartMeasure||ui.chartMeasure==='kg')?'active':''}" data-action="measure-field" data-field="kg">Peso</button>${BF.map(f=>`<button class="choice ${ui.chartMeasure===f?'active':''}" data-action="measure-field" data-field="${f}">${f}</button>`).join('')}</div></div>${measureChart()}<div class="no-data-note">Las fechas son proporcionales al calendario, incluso si pasás semanas sin medirte.</div></div>
+ <div class="card"><div class="card-title"><h2>Evolución con fechas reales</h2><div class="btn-row"><button class="choice ${(!ui.chartMeasure||ui.chartMeasure==='kg')?'active':''}" data-action="measure-field" data-field="kg">Peso</button>${BF.map(f=>`<button class="choice ${ui.chartMeasure===f?'active':''}" data-action="measure-field" data-field="${f}">${f}</button>`).join('')}</div></div>${ui.chartMeasure===undefined||ui.chartMeasure==='kg'?`<div class="btn-row mt"><button class="choice ${!ui.weightTrend?'active':''}" data-action="weight-trend" data-trend="false">Pesajes reales</button><button class="choice ${ui.weightTrend?'active':''}" data-action="weight-trend" data-trend="true">Tendencia (3 pesajes)</button></div>`:''}${measureChart()}<div class="no-data-note">Las fechas son proporcionales al calendario, incluso si pasás semanas sin medirte.</div></div>
+ ${comparisonCard()}
  ${checkpointStatus()}
  <div class="card"><div class="card-title"><h2>Historial de medidas</h2></div><div class="table-wrap"><table class="table"><thead><tr><th>Fecha</th><th>Peso</th><th>Medidas (cm)</th><th></th></tr></thead><tbody>${measures.slice().sort((a,b)=>b.d.localeCompare(a.d)).map(x=>`<tr><td>${x.d}</td><td>${x.kg!=null?fmt(x.kg,1)+' kg':'—'}</td><td>${Object.entries(x.m||{}).map(([k,v])=>escapeHtml(k)+': '+fmt(v,1)).join(' · ')||'—'}</td><td>${editing()?`<button class="btn sm ghost" data-action="body-edit" data-date="${x.d}">✎</button><button class="btn sm danger" data-action="body-delete" data-date="${x.d}" aria-label="Eliminar pesaje">×</button>`:''}</td></tr>`).join('')||'<tr><td colspan="4">Todavía no cargaste mediciones.</td></tr>'}</tbody></table></div></div>${calendar()}</div>`;
 }
@@ -453,9 +500,10 @@ function pageSettings(){
  <div class="card"><div class="card-title"><div><h2>Mi perfil corporal</h2><p class="small muted">Datos opcionales para calcular IMC y TMB.</p></div>${editing()?'<button class="btn sm primary" data-action="profile-edit">Editar perfil</button>':''}</div>
  <div class="profile-summary"><div><div class="stat-label">Estatura</div><strong>${S.profile?.heightCm?fmt(S.profile.heightCm,1)+' cm':'Pendiente de carga'}</strong></div><div><div class="stat-label">Fecha de nacimiento</div><strong>${S.profile?.birthDate?escapeHtml(S.profile.birthDate):'Pendiente de carga'}</strong></div><div><div class="stat-label">Fórmula TMB</div><strong>${S.profile?.formula==='female'?'Referencia femenina':S.profile?.formula==='male'?'Referencia masculina':'Pendiente de carga'}</strong></div></div><p class="no-data-note">Los datos se guardan solo en este dispositivo. El peso se carga en Progreso → Peso y medidas.</p></div>
  <div class="card"><div class="card-title"><h2>Etapas e historial</h2>${editing()?'<button class="btn sm primary" data-action="stage-new">+ Nueva etapa</button>':''}</div><p class="small muted mb">Archivar una etapa no elimina sus registros ni altera tus rutinas.</p><div class="list-items">${S.stages.slice().reverse().map(st=>`<div class="list-item"><span style="font-size:19px">${st.id===S.activeId?'💗':'🗂'}</span><div class="maintext"><strong>${escapeHtml(st.name)}</strong><small>${escapeHtml(st.start)}${st.archivedAt?' → '+escapeHtml(st.archivedAt):' · actual'} · ${S.food.filter(x=>x.stageId===st.id).length} días de alimentación</small></div><button class="btn sm" data-action="stage-view" data-id="${escapeAttr(st.id)}">${st.id===stage().id?'Viendo':'Ver'}</button></div>`).join('')}</div></div>
+ <div class="card"><div class="card-title"><h2>Objetivos personales</h2>${editing()?'<button class="btn sm" data-action="goals-edit">Editar</button>':''}</div><p class="small muted">Proteína diaria: <strong>${Number.isFinite(S.preferences?.proteinGoal)?fmt(S.preferences.proteinGoal)+' g':'Sin objetivo configurado'}</strong>. Esto no cambia tus registros antiguos.</p></div>
  <div class="card"><div class="card-title"><h2>Mis ejercicios y rutinas</h2></div><div class="btn-row"><button class="btn" data-action="ex-list">🏋 Gestionar ejercicios (${S.ex.length})</button><button class="btn" data-action="routine-edit">📋 Editar rutinas (${S.rt.length})</button><button class="btn" data-action="plan-edit">📅 Plan semanal</button><button class="btn" data-action="checklist-config">☑️ Editar checklist</button></div></div>
- <div class="card"><div class="card-title"><h2>Datos y respaldo</h2>${pill('100% local','good')}</div><p class="small muted mb">Tus datos están guardados en este navegador. Al borrar sus datos, cambiar de celular o reinstalarlo, podés perderlos si no exportás un backup.</p><div class="btn-row"><button class="btn primary" data-action="export">⬇ Descargar backup JSON</button><button class="btn" data-action="import">⬆ Importar backup JSON</button></div><p class="no-data-note">Se mantiene intacta la clave anterior (<code>gymapp1</code>) si venías de la versión 1. Importar reemplaza los datos de v2 después de pedir confirmación.</p></div>
- <div class="card"><div class="card-title"><h2>Acerca de Mi Gym 2.5</h2></div><p class="small muted">HTML, CSS y JavaScript, sin bibliotecas externas. Instalable como PWA con uso offline. Sin cuenta, sin sincronización y sin enviar tus datos a ningún servidor.</p></div></div>`;
+ <div class="card"><div class="card-title"><h2>Datos y respaldo</h2>${pill('100% local','good')}</div>${backupDue()?'<div class="no-data-note">💾 Te recomendamos descargar una copia actualizada.</div>':''}<p class="small muted mb">Tus datos están guardados en este navegador. Al borrar sus datos, cambiar de celular o reinstalarlo, podés perderlos si no exportás un backup.</p><div class="btn-row"><button class="btn primary" data-action="export">⬇ Descargar backup JSON</button><button class="btn" data-action="import">⬆ Importar backup JSON</button></div><p class="no-data-note">Se mantiene intacta la clave anterior (<code>gymapp1</code>) si venías de la versión 1. Importar reemplaza los datos de v2 después de pedir confirmación. ${S.lastBackupRequest?'Última descarga solicitada: '+new Date(S.lastBackupRequest).toLocaleDateString('es-AR')+'. Confirmá que el archivo existe.':'Todavía no hay una descarga registrada desde esta versión.'}</p></div>
+ <div class="card"><div class="card-title"><h2>Acerca de Mi Gym 2.6</h2></div><p class="small muted">HTML, CSS y JavaScript, sin bibliotecas externas. Instalable como PWA con uso offline. Sin cuenta, sin sincronización y sin enviar tus datos a ningún servidor.</p></div></div>`;
 }
 /* ---------- Accessible editing dialogs ---------- */
 function closeModal(){const root=$('#modal-root');root.innerHTML='';document.body.style.overflow=''}
@@ -509,11 +557,26 @@ function openPasteModal(){
  {label:'Cancelar',onClick:()=>{}},{label:'Importar días',kind:'primary',onClick:el=>{
   const arr=parseGemini(read(el,'json'));
   // Validate the full batch before changing saved data.
-  arr.forEach(x=>{const kcal=asNumber(x.kcal),burn=asNumber(x.gasto??x.burn);if(kcal<=0||kcal>20000||burn!==null&&(burn<0||burn>30000))throw Error('Valores inválidos en '+(x.fecha||x.d))});
-  arr.forEach(x=>saveFood(x));render();toast(`${arr.length} día(s) importado(s)`);
+  const records=arr.map(x=>{
+   const d=x.fecha||x.d,kcal=asNumber(x.kcal),burn=asNumber(x.gasto??x.burn),p=asNumber(x.prot??x.p),c=asNumber(x.carb??x.c),g=asNumber(x.grasa??x.g);
+   if(kcal===null||kcal<=0||kcal>20000)throw Error('Kcal inválidas en '+d);
+   for(const [field,value] of [['gasto',burn],['proteínas',p],['carbohidratos',c],['grasas',g]])if(value!==null&&(value<0||value>30000))throw Error('Valor inválido de '+field+' en '+d);
+   return {stageId:S.activeId,d,kcal,p,c,g,burn:burn>0?burn:null,estimate:true,notes:String(x.notes||'').slice(0,300)};
+  });
+  const keys=new Set(records.map(x=>x.d));
+  S.food=[...S.food.filter(x=>x.stageId!==S.activeId||!keys.has(x.d)),...records].sort((a,b)=>a.d.localeCompare(b.d));
+  milestones();persist();render();toast(`${arr.length} día(s) importado(s)`);
  }}],{onOpen:el=>{el.querySelector('[data-inline=prompt]').onclick=async()=>{
   try{await navigator.clipboard.writeText(GEMINI_PROMPT);toast('Instrucción copiada')}catch(e){showModal('Instrucción para Gemini',`<textarea rows="11" readonly>${escapeHtml(GEMINI_PROMPT)}</textarea>`,[{label:'Cerrar',onClick:()=>{}}])}
  }}});
+}
+function configureGoals(){
+ if(!editing())return;
+ const current=S.preferences?.proteinGoal;
+ showModal('Mis objetivos diarios',`<p class="small muted">La meta de proteínas es opcional: se muestra como referencia en Inicio sin castigos por no alcanzarla.</p>${field('Proteína objetivo (g/día; vacío = sin objetivo)','protein',current??'','number','min="1" max="400" step="1" inputmode="numeric"')}`,[
+  {label:'Cancelar',onClick:()=>{}},
+  {label:'Guardar objetivo',kind:'primary',onClick:el=>{const val=asNumber(read(el,'protein'));if(val!==null&&(val<1||val>400))throw Error('Revisá la meta de proteínas');S.preferences={...(S.preferences||{}),proteinGoal:val};persist();render();toast('Objetivo guardado')}}
+ ]);
 }
 function openProfileModal(){
  if(!editing())return;
@@ -548,7 +611,7 @@ function editExercise(id=null,afterSave=null){
  const rows=(e?.s||[{w:'0',r:'10'},{w:'0',r:'10'},{w:'0',r:'10'}]).map(s=>({...s}));
  const rowTemplate=(s,i)=>`<div class="series-edit"><span class="series-num">${i+1}</span><input data-w="${i}" aria-label="Peso serie ${i+1}" placeholder="Carga" value="${escapeAttr(s.w)}"><input data-r="${i}" aria-label="Repeticiones serie ${i+1}" placeholder="Reps" value="${escapeAttr(s.r)}"><button class="btn sm danger" data-del-series="${i}" aria-label="Quitar serie">×</button></div>`;
  const makeRows=(el)=>{el.querySelector('[data-sets]').innerHTML=rows.map(rowTemplate).join('');el.querySelectorAll('[data-w]').forEach(x=>x.oninput=()=>rows[+x.dataset.w].w=x.value);el.querySelectorAll('[data-r]').forEach(x=>x.oninput=()=>rows[+x.dataset.r].r=x.value);el.querySelectorAll('[data-del-series]').forEach(x=>x.onclick=()=>{if(rows.length<2)return;rows.splice(+x.dataset.delSeries,1);makeRows(el)})};
- showModal(e?'Editar ejercicio':'Crear ejercicio',`${field('Nombre','name',e?.name||'')}${field('Músculos separados por coma','ms',(e?.ms||[]).join(', '))}${field('Unidad','unit',e?.u||'kg')}${field('Nota para la próxima','note',e?.note||'')}
+ showModal(e?'Editar ejercicio':'Crear ejercicio',`${field('Nombre','name',e?.name||'')}${field('Músculos separados por coma','ms',(e?.ms||[]).join(', '))}${field('Unidad','unit',e?.u||'kg')}${field('Nota pendiente para la próxima sesión (se muestra una sola vez)','note',e?.note||'')}
  <div class="field"><label>Series (carga y repeticiones)</label><div data-sets class="stack"></div><button class="btn sm" data-add-series="true">+ Agregar serie</button></div>`,[
  {label:'Cancelar',onClick:()=>{}},{label:'Guardar ejercicio',kind:'primary',onClick:el=>{
   const name=read(el,'name').trim(),muscles=read(el,'ms').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean),unit=read(el,'unit').trim()||'kg';
@@ -607,21 +670,48 @@ function checklistEdit(){
 function newStageModal(){
  if(!editing())return;
  showModal('Empezar una nueva etapa',`<div class="muted-box small">Tu etapa actual quedará <strong>archivada</strong>. Se conservan sus registros históricos y también tus ejercicios y rutinas. Podrás verla en Ajustes → Etapas.</div>
- ${field('Nombre de la nueva etapa','name','Mi nueva etapa')}${field('Peso inicial (kg, opcional)','weight','','number','min="20" max="500" step="0.1"')}
+ ${field('Nombre de la nueva etapa','name','Mi nueva etapa')}${field('Fecha de inicio de la nueva etapa','stageStart',iso(),'date',`min="${shiftDay(activeStage().start,1)}" max="${iso()}"`)}${field('Peso inicial (kg, opcional)','weight','','number','min="20" max="500" step="0.1"')}
  <div class="field"><label>Objetivo o nota personal (opcional)</label><textarea data-field="note" rows="2" placeholder="Mi objetivo de esta etapa..."></textarea></div>
  <label class="checkline"><input type="checkbox" data-field="understood"><span>Entiendo que los registros anteriores quedarán archivados y que los objetivos de kcal se podrán volver a configurar.</span></label>
  <button class="btn full" data-inline="download">⬇ Descargar backup antes de empezar</button>`,[
  {label:'Cancelar',onClick:()=>{}},{label:'Archivar e iniciar',kind:'primary',onClick:el=>{
   if(!el.querySelector('[data-field=understood]').checked)throw Error('Confirmá que entendés cómo se archiva el historial');
   const w=asNumber(read(el,'weight'));if(w!==null&&(w<20||w>500))throw Error('Revisá tu peso inicial');
-  const name=read(el,'name').trim()||'Nueva etapa',note=read(el,'note').trim();newStage(name,w);
+  const name=read(el,'name').trim()||'Nueva etapa',note=read(el,'note').trim();newStage(name,w,read(el,'stageStart'));
   activeStage().targetNote=note;
   // Drop the inherited fixed daily calorie caps from the old plan, preserve activities.
   Object.keys(S.plan).forEach(d=>{S.plan[d].max=0});persist();render();
  }}],{onOpen:el=>{el.querySelector('[data-inline=download]').onclick=exportJSON}});
 }
-function chooseStage(id){ui.viewStage=id===S.activeId?null:id;ui.period=30;ui.calendarOffset=0;render();toast(id===S.activeId?'Etapa actual':'Visualizando etapa archivada')}
+function chooseStage(id){ui.viewStage=id===S.activeId?null:id;ui.period=30;ui.calendarOffset=0;ui.historyPage=0;render();toast(id===S.activeId?'Etapa actual':'Visualizando etapa archivada')}
 /* ---------- Exercise session interactions ---------- */
+function deliverFutureNote(pg,id){
+ if(!pg||!exercise(id))return;
+ pg.noteSeen=Array.isArray(pg.noteSeen)?pg.noteSeen:[];
+ pg.futureNotes=pg.futureNotes&&typeof pg.futureNotes==='object'?pg.futureNotes:{};
+ if(pg.noteSeen.includes(id))return;
+ pg.noteSeen.push(id);
+ const e=exercise(id);
+ if(String(e.note||'').trim()){pg.futureNotes[id]=String(e.note).trim();e.note='';}
+}
+function futureNoteForSession(id){return S.prog?.futureNotes?.[id]||''}
+function writeFutureNote(id){
+ if(!S.prog||!editing()||!S.prog.sel.includes(id))return;
+ const e=exercise(id);if(!e)return;
+ // The already-delivered message remains visible; this new one is for a future session.
+ showModal('Nota para mi próxima vez',`<p class="small muted">Dejale un consejo a la Cami del futuro para la próxima vez que entrenes <strong>${escapeHtml(e.name)}</strong>. No aparece como nota nueva en esta sesión.</p><textarea data-field="future-note" rows="5" maxlength="500" placeholder="La próxima vez probá…">${escapeHtml(e.note||'')}</textarea><p class="field-note">Se mostrará en la siguiente sesión en la que aparezca este ejercicio, una sola vez.</p>`,[
+  {label:'Cancelar',onClick:()=>{}},
+  {label:'Guardar para la próxima',kind:'primary',onClick:el=>{e.note=read(el,'future-note').trim().slice(0,500);persist();render();toast(e.note?'Nota guardada para la próxima 💗':'Nota pendiente eliminada')}}
+ ]);
+}
+function undoSessionExercise(id){
+ const pg=S.prog;if(!pg||!pg.done.includes(id)||!editing())return;
+ confirmModal('¿Deshacer «Hecho»?',`Vas a volver a tener pendiente ${exerciseName(id)}. Su registro de esta sesión se quitará, pero podrás cargarlo otra vez.`,()=>{
+  const index=S.hist.findLastIndex(x=>x.stageId===pg.stageId&&x.sessionId===pg.id&&x.e==id);
+  if(index>=0)S.hist.splice(index,1);
+  pg.done=pg.done.filter(x=>x!==id);persist();render();toast('Podés registrar el ejercicio otra vez');
+ },'Deshacer');
+}
 function startSession(id){
  if(!editing())return;
  const r=S.rt.find(x=>x.id==id);if(!r)return toast('Rutina no encontrada');
@@ -630,8 +720,8 @@ function startSession(id){
  }
  const selected=(r.items||[]).filter(it=>!it.opt).map(it=>it.e);
  // Optional exercises are offered separately; do not silently add them.
- S.prog={id:uid(),d:iso(),stageId:S.activeId,r:r.id,sel:selected,done:[],startedAt:Date.now(),elapsedMs:0};
- persist();ui.page='gym';render();window.scrollTo(0,0);
+ S.prog={id:uid(),d:iso(),stageId:S.activeId,r:r.id,sel:selected,done:[],startedAt:Date.now(),elapsedMs:0,noteSeen:[],futureNotes:{}};
+ selected.forEach(id=>deliverFutureNote(S.prog,id));persist();ui.page='gym';render();window.scrollTo(0,0);
 }
 function logExercise(id,sets=null){
  if(!editing()||!S.prog||!S.prog.sel.includes(id)||S.prog.done.includes(id))return;
@@ -642,7 +732,9 @@ function logExercise(id,sets=null){
 }
 function editSessionSeries(id){
  const e=exercise(id);if(!e)return;
- const rows=e.s.map(s=>({...s}));
+ const pg=S.prog,completed=!!pg?.done?.includes(id);
+ const previous=completed?S.hist.findLast(x=>x.sessionId===pg.id&&x.e==id&&x.stageId===pg.stageId):null;
+ const rows=(previous?.s||e.s).map(s=>({...s}));
  function draw(el){
   const target=el.querySelector('[data-sets]');
   target.innerHTML=rows.map((x,i)=>`<div class="series-edit"><span class="series-num">${i+1}</span><input data-w="${i}" placeholder="Carga" aria-label="Carga ${i+1}" value="${escapeAttr(x.w)}"><input data-r="${i}" placeholder="Reps" aria-label="Repeticiones ${i+1}" value="${escapeAttr(x.r)}"><button class="btn sm danger" data-remove="${i}">×</button></div>`).join('');
@@ -650,22 +742,23 @@ function editSessionSeries(id){
   target.querySelectorAll('[data-r]').forEach(x=>x.oninput=()=>rows[+x.dataset.r].r=x.value);
   target.querySelectorAll('[data-remove]').forEach(x=>x.onclick=()=>{if(rows.length===1)return;rows.splice(+x.dataset.remove,1);draw(el)});
  }
- showModal('Series · '+e.name,`<p class="small muted">Cambiá las cargas o repeticiones de hoy. Se guardan como referencia para tus próximos entrenamientos.</p><div data-sets class="stack"></div><button class="btn sm" data-add="1">+ Serie</button>`,[
- {label:'Cancelar',onClick:()=>{}},{label:'Guardar y marcar hecho',kind:'primary',onClick:el=>{
+ showModal('Series · '+e.name,`<p class="small muted">${completed?'Corregí las series realmente registradas en esta sesión.':'Cambiá las cargas o repeticiones de hoy.'} Se guardan como referencia para tus próximos entrenamientos.</p><div data-sets class="stack"></div><button class="btn sm" data-add="1">+ Serie</button>`,[
+ {label:'Cancelar',onClick:()=>{}},{label:completed?'Guardar corrección':'Guardar y marcar hecho',kind:'primary',onClick:el=>{
   if(rows.some(x=>!String(x.w).trim()||!String(x.r).trim()))throw Error('Completá todas las series');
-  e.s=rows.map(x=>({...x}));logExercise(id,rows);
+  e.s=rows.map(x=>({...x}));
+  if(completed&&previous){previous.s=rows.map(x=>({...x}));persist();render();toast('Series corregidas')}else logExercise(id,rows);
  }}],{onOpen:el=>{draw(el);el.querySelector('[data-add]').onclick=()=>{if(rows.length<15){rows.push({...rows.at(-1)});draw(el)}}}});
 }
 function addSessionExercise(){
  if(!S.prog||!editing())return;
  const options=S.ex.filter(x=>!S.prog.sel.includes(x.id));
  showModal('Agregar ejercicio',`<p class="small muted">Elegí una alternativa o sumá un ejercicio a la sesión de hoy.</p><div class="list-items">${options.map(x=>`<button class="btn full" data-sel="${x.id}">${escapeHtml(x.name)} · <small>${escapeHtml(x.ms.join(', '))}</small></button>`).join('')||'<div class="nothing">Todos tus ejercicios están en la sesión.</div>'}</div><button class="btn sm" data-new="1">+ Crear ejercicio</button>`,[{label:'Cerrar',onClick:()=>{}}],{onOpen:el=>{
-  el.querySelector('[data-new]').onclick=()=>editExercise(null,x=>{S.prog.sel.push(x.id);persist();render()});
+  el.querySelector('[data-new]').onclick=()=>editExercise(null,x=>{S.prog.sel.push(x.id);deliverFutureNote(S.prog,x.id);persist();render()});
   el.querySelectorAll('[data-sel]').forEach(b=>b.onclick=()=>{
    const id=Number(b.dataset.sel),e=exercise(id),selected=S.prog.sel.map(exercise).filter(Boolean);
    const atCap=e.ms.some(m=>selected.filter(x=>x.ms.includes(m)).length>=CAP);
    if(atCap)return toast('Máximo '+CAP+' ejercicios del mismo músculo en la sesión');
-   S.prog.sel.push(id);persist();closeModal();render();toast('Ejercicio agregado');
+   S.prog.sel.push(id);deliverFutureNote(S.prog,id);persist();closeModal();render();toast('Ejercicio agregado');
   });
  }});
 }
@@ -721,13 +814,34 @@ function checkHistory(mode='month',offset=0){
   el.querySelectorAll('[data-history-move]').forEach(b=>b.onclick=()=>checkHistory(mode,offset+(b.dataset.historyMove==='prev'?-1:1)));
  }});
 }
+function gymExerciseMetric(log,metric){
+ const sets=(log.s||[]).map(x=>({w:exerciseWeight(x.w),r:exerciseWeight(x.r)}));
+ if(metric==='reps'){
+  const nums=sets.map(x=>x.r).filter(Number.isFinite);return nums.length?Math.max(...nums):null;
+ }
+ if(metric==='volume'){
+  const eligible=sets.filter(x=>Number.isFinite(x.w)&&Number.isFinite(x.r));
+  return eligible.length?eligible.reduce((sum,x)=>sum+x.w*x.r,0):null;
+ }
+ const nums=sets.map(x=>x.w).filter(Number.isFinite);return nums.length?Math.max(...nums):null;
+}
 function gymProgressChart(){
  const logs=rec('hist'),ids=[...new Set(logs.map(x=>x.e))],pick=ids.includes(ui.exerciseId)?ui.exerciseId:ids[0];
  if(!pick)return '<div class="nothing">Cuando registres ejercicios vas a poder seguir la evolución de cargas aquí.</div>';
- const e=exercise(pick),name=e?.name||'Ejercicio anterior';
- return `<div class="card"><div class="card-title"><div><h2>Evolución de cargas</h2><p class="small muted">Carga máxima anotada · respetando las fechas</p></div></div><div class="field" style="margin-bottom:12px"><label for="select-exercise">Ejercicio</label><select id="select-exercise" data-change="exercise">${ids.map(id=>`<option value="${id}" ${pick==id?'selected':''}>${escapeHtml(exerciseName(id))}</option>`).join('')}</select></div>${svgTimeSeries(logs.filter(x=>x.e==pick).map(x=>({...x,weight:(x.s.map(s=>exerciseWeight(s.w)).filter(Number.isFinite).reduce((m,v)=>Math.max(m,v),-Infinity))})),x=>x.weight,e?.u||'kg')}<p class="no-data-note">Se muestran sólo las sesiones anotadas. Los períodos sin entrenamiento quedan espaciados según el calendario.</p></div>`;
+ const e=exercise(pick),name=e?.name||'Ejercicio anterior',metric=ui.gymMetric||'weight';
+ const metrics={weight:'Carga máxima',reps:'Mejor serie en repeticiones',volume:'Volumen registrado estimado'};
+ const unit=metric==='reps'?'reps':metric==='volume'?'kg × reps':e?.u||'kg';
+ const historical=logs.filter(x=>x.e==pick).sort((a,b)=>a.d.localeCompare(b.d)),points=historical.map(x=>({...x,metricValue:gymExerciseMetric(x,metric)})).filter(x=>Number.isFinite(x.metricValue));
+ const best=points.length?Math.max(...points.map(x=>x.metricValue)):null,last=points.at(-1),before=points.length>1?points.at(-2):null;
+ const change=last&&before?last.metricValue-before.metricValue:null;
+ const summary=best===null?'No hay valores numéricos comparables':`Récord: ${fmt(best,2)} ${unit}${change===null?'':` · Última comparación: ${change>0?'+':''}${fmt(change,2)} ${unit}`}`;
+ return `<div class="card"><div class="card-title"><div><h2>Evolución de fuerza</h2><p class="small muted">${escapeHtml(metrics[metric])} · fechas reales</p></div></div><div class="field" style="margin-bottom:12px"><label for="select-exercise">Ejercicio</label><select id="select-exercise" data-change="exercise">${ids.map(id=>`<option value="${id}" ${pick==id?'selected':''}>${escapeHtml(exerciseName(id))}</option>`).join('')}</select></div>
+ <div class="btn-row metric-picker">${[['weight','Carga'],['reps','Reps'],['volume','Volumen']].map(([key,label])=>`<button class="choice ${metric===key?'active':''}" data-action="gym-metric" data-metric="${key}">${label}</button>`).join('')}</div>
+ <p class="metric-summary">🏆 ${escapeHtml(summary)}</p>
+ ${svgTimeSeries(points,x=>x.metricValue,unit)}<p class="no-data-note">Las comparaciones se calculan únicamente con valores numéricos que registraste. El volumen suma carga × repeticiones por serie; no equivale a calorías gastadas.</p></div>`;
 }
 // Render the dedicated exercise progression chart instead of treating every workout day as a flat 1-point line.
+function gymHistoryDates(){return [...new Set([...rec('hist').map(x=>x.d),...(S.sessions||[]).filter(x=>x.stageId===stage().id).map(x=>x.d)])].sort().reverse()}
 function pageGym(){
  if(editing()&&S.prog&&S.prog.stageId===S.activeId)return session();
  const count=rec('hist').length,trained=new Set(rec('hist').map(x=>x.d)).size;
@@ -735,7 +849,7 @@ function pageGym(){
  <div class="cards-2">${stat('Días entrenados',fmt(trained),'días','En esta etapa')}${stat('Ejercicios anotados',fmt(count),'','Cada ejercicio completado')}</div>
  <div class="card"><div class="card-title"><div><h2>Rutinas</h2><p class="small muted">Elegí la que hagas hoy; podés cambiar el orden.</p></div>${editing()?'<button class="btn sm" data-action="routine-edit">Gestionar</button>':''}</div><div class="list-items">${S.rt.map(routineCard).join('')||'<div class="nothing">Todavía no hay rutinas.</div>'}</div></div>
  <div class="row between wrap"><div><h2>Progreso real</h2><p class="small muted">Cargas y constancia en el tiempo</p></div>${periodButtons()}</div>${gymProgressChart()}
- <div class="card"><div class="card-title"><h2>Días de entrenamiento</h2></div><div class="table-wrap"><table class="table"><thead><tr><th>Fecha</th><th>Ejercicios registrados</th></tr></thead><tbody>${[...new Set([...rec('hist').map(x=>x.d),...(S.sessions||[]).filter(x=>x.stageId===stage().id).map(x=>x.d)])].sort().reverse().slice(0,20).map(d=>`<tr><td>${d}</td><td>${rec('hist').filter(x=>x.d===d).length} <button class="btn sm ghost" data-action="gym-history" data-date="${d}">Ver</button></td></tr>`).join('')||'<tr><td colspan="2">Sin registros todavía.</td></tr>'}</tbody></table></div></div>${calendar()}</div>`;
+ <div class="card"><div class="card-title"><h2>Días de entrenamiento</h2></div><div class="table-wrap"><table class="table"><thead><tr><th>Fecha</th><th>Ejercicios registrados</th></tr></thead><tbody>${gymHistoryDates().slice(ui.historyPage*20,(ui.historyPage+1)*20).map(d=>`<tr><td>${d}</td><td>${rec('hist').filter(x=>x.d===d).length} <button class="btn sm ghost" data-action="gym-history" data-date="${d}">Ver</button></td></tr>`).join('')||'<tr><td colspan="2">Sin registros todavía.</td></tr>'}</tbody></table></div><div class="history-pagination"><span class="small muted">${gymHistoryDates().length} fechas · página ${ui.historyPage+1} de ${Math.max(1,Math.ceil(gymHistoryDates().length/20))}</span><div class="btn-row"><button class="btn sm" data-action="history-page" data-move="prev" ${ui.historyPage===0?'disabled':''}>‹ Más recientes</button><button class="btn sm" data-action="history-page" data-move="next" ${(ui.historyPage+1)*20>=gymHistoryDates().length?'disabled':''}>Anteriores ›</button></div></div></div>${calendar()}</div>`;
 }
 
 /* ---------- Actions + boot ---------- */
@@ -749,11 +863,14 @@ const ACTIONS={
  'month-prev':()=>{ui.calendarOffset--;render()},
  'month-next':()=>{if(ui.calendarOffset<0)ui.calendarOffset++;render()},
  'measure-field':b=>{ui.chartMeasure=b.dataset.field;render()},
+ 'gym-metric':b=>{ui.gymMetric=b.dataset.metric;render()},
+ 'weight-trend':b=>{ui.weightTrend=b.dataset.trend==='true';render()},
  'food-add':()=>openFoodModal(),
  'food-edit':b=>openFoodModal(b.dataset.date),
  'food-paste':openPasteModal,
  'food-delete':b=>confirmModal('Eliminar día de alimentación',`¿Querés borrar el registro del ${b.dataset.date}? Podrás recuperarlo desde una copia de seguridad anterior.`,()=>deleteRecord('food',b.dataset.date),'Eliminar registro',true),
  'profile-edit':openProfileModal,
+ 'goals-edit':configureGoals,
  'body-add':()=>openBodyModal(),
  'body-edit':b=>openBodyModal(b.dataset.date),
  'body-delete':b=>confirmModal('Eliminar pesaje',`¿Querés borrar el control del ${b.dataset.date}? Si estaba asociado a un umbral, volverá a quedar pendiente.`,()=>deleteRecord('body',b.dataset.date),'Eliminar registro',true),
@@ -762,8 +879,11 @@ const ACTIONS={
  'session-add':addSessionExercise,
  'session-log':b=>logExercise(Number(b.dataset.id)),
  'session-edit':b=>editSessionSeries(Number(b.dataset.id)),
+ 'session-note':b=>writeFutureNote(Number(b.dataset.id)),
+ 'session-undo':b=>undoSessionExercise(Number(b.dataset.id)),
  'session-skip':b=>{if(!S.prog)return;S.prog.sel=S.prog.sel.filter(id=>id!==Number(b.dataset.id));persist();render()},
  'gym-history':b=>gymHistory(b.dataset.date),
+ 'history-page':b=>{ui.historyPage=Math.max(0,Math.min(Math.ceil(gymHistoryDates().length/20)-1,ui.historyPage+(b.dataset.move==='next'?1:-1)));render()},
  'session-finish':finishSession,
  'session-cancel':()=>confirmModal('Descartar sesión actual','Se borrará la lista pendiente. Los ejercicios que ya anotaste seguirán en el historial.',()=>{S.prog=null;persist();render()},'Descartar',true),
  'plan-edit':()=>planEdit(),
@@ -783,6 +903,8 @@ document.addEventListener('click',e=>{
 document.addEventListener('change',e=>{
  if(e.target.matches('[data-checkid]'))toggleHabit(e.target.dataset.checkid,e.target.checked);
  if(e.target.matches('[data-change="exercise"]')){ui.exerciseId=Number(e.target.value);render()}
+ if(e.target.matches('[data-change="compare-from"]')){ui.compareFrom=e.target.value;render()}
+ if(e.target.matches('[data-change="compare-to"]')){ui.compareTo=e.target.value;render()}
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#modal-root .modal'))closeModal()});
 $('#import-file').addEventListener('change',async e=>{

@@ -1,3 +1,39 @@
+# Mi Gym 2.6 — 22/11/2026
+
+- **Nota para mi próxima vez:** durante la sesión podés crear o editar una nota específica para ese ejercicio. Aparece la próxima vez que ese ejercicio está incluido en una sesión y no se vuelve a mostrar en sesiones posteriores. Una copia se mantiene visible durante la sesión de entrega, incluso si se recarga la app. Las notas antiguas pendientes se conservan hasta su siguiente presentación.
+- **Edición de ejercicios ya completados:** corregir series desde la rutina activa y deshacer un «Hecho» accidental, con actualización del registro de esa sesión sin duplicarlo.
+- **Entrenamientos con récords:** el resumen final destaca cargas que superan los máximos históricos registrados; Gym permite ver carga máxima, mejor serie por repeticiones y volumen estimado.
+- **Inicio más práctico:** accesos directos al gym, pesajes y comidas; información de proteínas y objetivo diario opcional editable en Ajustes.
+- **Peso y medidas:** comparación de dos controles y tendencia de 3 pesajes (solo fechas efectivamente registradas).
+- **Seguridad:** recordatorio local de respaldo cada 14 días (sin afirmar que el archivo se descargó correctamente); la importación por lotes de Gemini valida todos los valores antes de reemplazar los días involucrados.
+- **Historial y etapas:** páginas de 20 días de entrenamiento para consultar todo el historial, calendario clicable para los días con gym y elección de fecha de inicio de una etapa. Impide fechas que ocultarían registros de la etapa anterior.
+- **Compatibilidad:** se conserva la clave `migym-v2` y el esquema `version: 2`; se incorporan solo campos opcionales. Sin sincronización externa, sin borrado de localStorage, sin inicio de etapas automático. El Service Worker utiliza la caché `mi-gym-2-v2.6.0`.
+- **Hábitos:** los ejemplos por defecto de instalaciones nuevas usan formulaciones positivas. Los checklist ya guardados se conservan sin modificar.
+
+# Mi Gym 2.6 — 22/11/2026
+
+- **Nota para mi próxima vez:** durante la sesión podés crear o editar una nota específica para ese ejercicio. Aparece la próxima vez que ese ejercicio está incluido en una sesión y no se vuelve a mostrar en sesiones posteriores. Una copia se mantiene visible durante la sesión de entrega, incluso si se recarga la app. Las notas antiguas pendientes se conservan hasta su siguiente presentación.
+- **Edición de ejercicios ya completados:** corregir series desde la rutina activa y deshacer un «Hecho» accidental, con actualización del registro de esa sesión sin duplicarlo.
+- **Entrenamientos con récords:** el resumen final destaca cargas que superan los máximos históricos registrados; Gym permite ver carga máxima, mejor serie por repeticiones y volumen estimado.
+- **Inicio más práctico:** accesos directos al gym, pesajes y comidas; información de proteínas y objetivo diario opcional editable en Ajustes.
+- **Peso y medidas:** comparación de dos controles y tendencia de 3 pesajes (solo fechas efectivamente registradas).
+- **Seguridad:** recordatorio local de respaldo cada 14 días (sin afirmar que el archivo se descargó correctamente); la importación por lotes de Gemini valida todos los valores antes de reemplazar los días involucrados.
+- **Historial y etapas:** páginas de 20 días de entrenamiento para consultar todo el historial, calendario clicable para los días con gym y elección de fecha de inicio de una etapa. Impide fechas que ocultarían registros de la etapa anterior.
+- **Compatibilidad:** se conserva la clave `migym-v2` y el esquema `version: 2`; se incorporan solo campos opcionales. Sin sincronización externa, sin borrado de localStorage, sin inicio de etapas automático. El Service Worker utiliza la caché `mi-gym-2-v2.6.0`.
+- **Hábitos:** los ejemplos por defecto de instalaciones nuevas usan formulaciones positivas. Los checklist ya guardados se conservan sin modificar.
+
+# Mi Gym 2.6 — 22/11/2026
+
+- **Nota para mi próxima vez:** durante la sesión podés crear o editar una nota específica para ese ejercicio. Aparece la próxima vez que ese ejercicio está incluido en una sesión y no se vuelve a mostrar en sesiones posteriores. Una copia se mantiene visible durante la sesión de entrega, incluso si se recarga la app. Las notas antiguas pendientes se conservan hasta su siguiente presentación.
+- **Edición de ejercicios ya completados:** corregir series desde la rutina activa y deshacer un «Hecho» accidental, con actualización del registro de esa sesión sin duplicarlo.
+- **Entrenamientos con récords:** el resumen final destaca cargas que superan los máximos históricos registrados; Gym permite ver carga máxima, mejor serie por repeticiones y volumen estimado.
+- **Inicio más práctico:** accesos directos al gym, pesajes y comidas; información de proteínas y objetivo diario opcional editable en Ajustes.
+- **Peso y medidas:** comparación de dos controles y tendencia de 3 pesajes (solo fechas efectivamente registradas).
+- **Seguridad:** recordatorio local de respaldo cada 14 días (sin afirmar que el archivo se descargó correctamente); la importación por lotes de Gemini valida todos los valores antes de reemplazar los días involucrados.
+- **Historial y etapas:** páginas de 20 días de entrenamiento para consultar todo el historial, calendario clicable para los días con gym y elección de fecha de inicio de una etapa. Impide fechas que ocultarían registros de la etapa anterior.
+- **Compatibilidad:** se conserva la clave `migym-v2` y el esquema `version: 2`; se incorporan solo campos opcionales. Sin sincronización externa, sin borrado de localStorage, sin inicio de etapas automático. El Service Worker utiliza la caché `mi-gym-2-v2.6.0`.
+- **Hábitos:** los ejemplos por defecto de instalaciones nuevas usan formulaciones positivas. Los checklist ya guardados se conservan sin modificar.
+
 # Mi Gym 2.5
 
 - Corregido el cierre involuntario del resumen al confirmar la finalización con ejercicios pendientes.

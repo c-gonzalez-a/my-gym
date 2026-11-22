@@ -1,4 +1,4 @@
-# 💗 Mi Gym 2.5
+# 💗 Mi Gym 2.6
 
 Aplicación personal **instalable como PWA** para registrar entrenamientos, alimentación, hábitos, peso y medidas. Diseño responsive, con temas claro, oscuro y automático. **Sin cuentas, sin servidor, sin dependencia de servicios externos para funcionar y usable offline** después de la primera visita por HTTPS.
 
@@ -9,15 +9,15 @@ Aplicación personal **instalable como PWA** para registrar entrenamientos, alim
 1. Abrí tu versión actual, en **Gym → Gestionar → Backup → Exportar**.
 2. Guardá el archivo `.json` en un lugar seguro, fuera del navegador.
 3. Actualizá tu repositorio de GitHub como se explica más abajo.
-4. Abrí la app nueva desde **el mismo enlace de GitHub Pages y el mismo navegador/dispositivo**. Mi Gym 2.5 intentará migrar automáticamente los datos guardados bajo la clave antigua `gymapp1`.
+4. Abrí la app nueva desde **el mismo enlace de GitHub Pages y el mismo navegador/dispositivo**. Mi Gym 2.6 intentará migrar automáticamente los datos guardados bajo la clave antigua `gymapp1`.
 5. Verificá tus rutinas, alimentación, pesajes y entrenamientos. Si no aparecen porque cambiaste de navegador, URL o dispositivo, abrí **Ajustes → Importar backup JSON** y seleccioná el respaldo que descargaste.
-6. Cuando estés conforme, elegí **Ajustes → Nueva etapa**. La anterior quedará archivada y la nueva empezará con su propio historial. El botón no elimina información previa.
+6. **No inicies una etapa nueva por el solo hecho de actualizar.** Mantené la etapa actual. Si algún día querés archivarla, usá **Ajustes → Nueva etapa**, que conserva el historial anterior.
 
 > La actualización **no borra la clave original** `gymapp1`. La versión nueva guarda sus datos en una clave separada, `migym-v2`. Esto no reemplaza la recomendación de exportar un backup real.
 
 ## Actualizar GitHub Pages
 
-1. Descomprimí `Mi-Gym-2.5-completo.zip`.
+1. Descomprimí `Mi-Gym-2.6-completo.zip`.
 2. Subí **los archivos que están dentro** del ZIP a la **raíz** del mismo repositorio que ya publica tu app. Reemplazá `index.html`, `manifest.webmanifest`, `sw.js` y los íconos. Agregá los nuevos `app.js`, `styles.css`, `README.md` y `CHANGELOG.md`.
 3. Confirmá el commit en la rama publicada (por ejemplo `main`). Si no tenés Pages configurado: **Settings → Pages → Deploy from a branch → `main` → `/ (root)`**.
 4. Abrí tu URL de GitHub Pages. Esperá la publicación y recargá la página. Si ves la versión vieja, cerrá y abrí nuevamente la app; el Service Worker antiguo guardaba una versión en caché.
@@ -25,7 +25,7 @@ Aplicación personal **instalable como PWA** para registrar entrenamientos, alim
 
 Si no querés publicar todavía, `index.html` puede abrirse en una computadora junto a `app.js` y `styles.css`; sin embargo, algunos navegadores restringen el almacenamiento local en archivos `file://`, y el modo offline instalable necesita HTTPS. La prueba recomendada es desde GitHub Pages.
 
-## ¿Qué incluye la versión 2.5?
+## ¿Qué incluye Mi Gym 2.6?
 
 ### Inicio
 
@@ -59,7 +59,7 @@ Si no querés publicar todavía, `index.html` puede abrirse en una computadora j
 
 ### Etapas y privacidad
 
-- **Nueva etapa**: archiva la actual, crea una nueva desde hoy, te deja ingresar un peso inicial y conserva las rutinas.
+- **Nueva etapa**: archiva la actual, permite elegir una fecha de inicio que no oculte registros, ingresar un peso inicial y conserva las rutinas.
 - Los objetivos/calorías diarios antiguos se desactivan al iniciar una etapa nueva para que puedas revisarlos antes de volver a usarlos.
 - Se puede consultar una etapa archivada desde Ajustes, en modo lectura.
 - Los datos se guardan **solamente en el navegador actual** (`localStorage`). No existe sincronización entre dispositivos.
@@ -105,7 +105,7 @@ Se puede pegar una lista (`[ {...}, {...} ]`) con varios días. `kcal` correspon
 
 ## Pruebas realizadas
 
-Se comprobó en navegador headless con anchos de celular y escritorio: navegación, cambio de temas, carga de alimentación, días incompletos, importación de JSON de Gemini, registro de medidas, inicio y registro de ejercicios, creación de nueva etapa y consulta del historial archivado. También se comprobó que no haya errores JavaScript y que no aparezca desplazamiento horizontal en esos tamaños. **Conviene hacer una prueba en tu propio teléfono antes de dar por terminada la migración.**
+Se comprobó en Chromium headless con ancho de celular (390 px): notas de siguiente sesión y su persistencia, edición y deshacer series completadas, historial, comparación de medidas, importación JSON por lotes sin guardado parcial, compatibilidad con datos v2 anteriores y almacenamiento inválido sin sobrescritura. También se verificaron ausencia de errores JS y desplazamiento horizontal. Falta probar la actualización del Service Worker y el comportamiento en un Android real. En versiones anteriores se había comprobado en navegador headless con anchos de celular y escritorio: navegación, cambio de temas, carga de alimentación, días incompletos, importación de JSON de Gemini, registro de medidas, inicio y registro de ejercicios, creación de nueva etapa y consulta del historial archivado. También se comprobó que no haya errores JavaScript y que no aparezca desplazamiento horizontal en esos tamaños. **Conviene hacer una prueba en tu propio teléfono antes de dar por terminada la migración.**
 
 ## Nuevo en 2.1 — IMC, TMB y avisos discretos
 
@@ -137,3 +137,45 @@ Referencias generales de los cálculos: [CDC — Body Mass Index](https://www.cd
 **Importante:** guardá un backup antes de actualizar. No borres los datos de la aplicación ni inicies una etapa nueva para instalar esta versión. El almacenamiento conserva la clave `migym-v2` y las etapas existentes.
 
 **Protección de datos:** si el almacenamiento contiene datos inválidos, Mi Gym muestra una advertencia y no los reemplaza por registros vacíos. Se puede recuperar desde un respaldo JSON válido.
+
+### Novedades de la versión 2.6
+
+- **Notas para la Cami del futuro:** durante una rutina, tocá **Nota para mi próxima vez** en la tarjeta del ejercicio. Escribí el mensaje y guardalo. Aparece destacado cuando ese ejercicio vuelve a incluirse en una sesión posterior. Al entrar en esa sesión el mensaje deja de estar pendiente y queda visible solo durante esa sesión, incluso tras recargar. Podés dejar otra nota o ninguna. Las notas que ya existían antes de 2.6 se entregan una vez; no se borran en la instalación. Si arrancás una rutina y quitás un ejercicio, su nota se habrá considerado mostrada al aparecer la tarjeta.
+- **Corregir series y deshacer:** podés editar un ejercicio después de marcar «Hecho», o deshacerlo. Las correcciones no crean registros duplicados.
+- **Fuerza y récords:** Gym muestra máximo registrado, comparaciones con el registro anterior y gráficos por carga/repeticiones/volumen. El resumen final indica los récords de carga si existen registros previos comparables.
+- **Inicio:** accesos rápidos, proteína consumida y meta opcional editable en Ajustes → Objetivos personales.
+- **Progreso:** comparación de medidas de dos fechas reales y media de los tres últimos pesajes, sin inventar días ni rellenar huecos.
+- **Respaldo:** aviso cada 14 días sin solicitar un backup. La fecha se refiere al intento de descarga, por lo que debés comprobar que el archivo existe realmente.
+- **Historial:** paginación de todos los días con entrenamientos y acceso desde los días marcados en el calendario.
+- **Etapas:** elegí una fecha de inicio que no coincida ni sea anterior a registros existentes en la etapa que se archiva. No se permite empezar otra etapa con un entrenamiento en curso.
+- **Gemini:** valida todos los días y macros de un lote antes de modificar los registros. El error de un día no deja la importación a medias.
+
+**Protección de registros existentes:** actualizar los archivos del mismo repositorio no ejecuta ninguna acción de borrado de localStorage ni reinicia etapas. Sin embargo, la conservación real depende de abrir la misma URL y del mismo perfil de navegador/PWA; descargá un backup JSON **antes** de publicar, verificá que existe y no borres los datos del sitio.
+
+### Novedades de la versión 2.6
+
+- **Notas para la Cami del futuro:** durante una rutina, tocá **Nota para mi próxima vez** en la tarjeta del ejercicio. Escribí el mensaje y guardalo. Aparece destacado cuando ese ejercicio vuelve a incluirse en una sesión posterior. Al entrar en esa sesión el mensaje deja de estar pendiente y queda visible solo durante esa sesión, incluso tras recargar. Podés dejar otra nota o ninguna. Las notas que ya existían antes de 2.6 se entregan una vez; no se borran en la instalación. Si arrancás una rutina y quitás un ejercicio, su nota se habrá considerado mostrada al aparecer la tarjeta.
+- **Corregir series y deshacer:** podés editar un ejercicio después de marcar «Hecho», o deshacerlo. Las correcciones no crean registros duplicados.
+- **Fuerza y récords:** Gym muestra máximo registrado, comparaciones con el registro anterior y gráficos por carga/repeticiones/volumen. El resumen final indica los récords de carga si existen registros previos comparables.
+- **Inicio:** accesos rápidos, proteína consumida y meta opcional editable en Ajustes → Objetivos personales.
+- **Progreso:** comparación de medidas de dos fechas reales y media de los tres últimos pesajes, sin inventar días ni rellenar huecos.
+- **Respaldo:** aviso cada 14 días sin solicitar un backup. La fecha se refiere al intento de descarga, por lo que debés comprobar que el archivo existe realmente.
+- **Historial:** paginación de todos los días con entrenamientos y acceso desde los días marcados en el calendario.
+- **Etapas:** elegí una fecha de inicio que no coincida ni sea anterior a registros existentes en la etapa que se archiva. No se permite empezar otra etapa con un entrenamiento en curso.
+- **Gemini:** valida todos los días y macros de un lote antes de modificar los registros. El error de un día no deja la importación a medias.
+
+**Protección de registros existentes:** actualizar los archivos del mismo repositorio no ejecuta ninguna acción de borrado de localStorage ni reinicia etapas. Sin embargo, la conservación real depende de abrir la misma URL y del mismo perfil de navegador/PWA; descargá un backup JSON **antes** de publicar, verificá que existe y no borres los datos del sitio.
+
+### Novedades de la versión 2.6
+
+- **Notas para la Cami del futuro:** durante una rutina, tocá **Nota para mi próxima vez** en la tarjeta del ejercicio. Escribí el mensaje y guardalo. Aparece destacado cuando ese ejercicio vuelve a incluirse en una sesión posterior. Al entrar en esa sesión el mensaje deja de estar pendiente y queda visible solo durante esa sesión, incluso tras recargar. Podés dejar otra nota o ninguna. Las notas que ya existían antes de 2.6 se entregan una vez; no se borran en la instalación. Si arrancás una rutina y quitás un ejercicio, su nota se habrá considerado mostrada al aparecer la tarjeta.
+- **Corregir series y deshacer:** podés editar un ejercicio después de marcar «Hecho», o deshacerlo. Las correcciones no crean registros duplicados.
+- **Fuerza y récords:** Gym muestra máximo registrado, comparaciones con el registro anterior y gráficos por carga/repeticiones/volumen. El resumen final indica los récords de carga si existen registros previos comparables.
+- **Inicio:** accesos rápidos, proteína consumida y meta opcional editable en Ajustes → Objetivos personales.
+- **Progreso:** comparación de medidas de dos fechas reales y media de los tres últimos pesajes, sin inventar días ni rellenar huecos.
+- **Respaldo:** aviso cada 14 días sin solicitar un backup. La fecha se refiere al intento de descarga, por lo que debés comprobar que el archivo existe realmente.
+- **Historial:** paginación de todos los días con entrenamientos y acceso desde los días marcados en el calendario.
+- **Etapas:** elegí una fecha de inicio que no coincida ni sea anterior a registros existentes en la etapa que se archiva. No se permite empezar otra etapa con un entrenamiento en curso.
+- **Gemini:** valida todos los días y macros de un lote antes de modificar los registros. El error de un día no deja la importación a medias.
+
+**Protección de registros existentes:** actualizar los archivos del mismo repositorio no ejecuta ninguna acción de borrado de localStorage ni reinicia etapas. Sin embargo, la conservación real depende de abrir la misma URL y del mismo perfil de navegador/PWA; descargá un backup JSON **antes** de publicar, verificá que existe y no borres los datos del sitio.
