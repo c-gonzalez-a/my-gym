@@ -1,4 +1,4 @@
-/* Mi Gym 2.1 — vanilla JavaScript, no account, no server. */
+/* Mi Gym 2.5 — vanilla JavaScript, sin cuentas ni servidor. */
 'use strict';
 const KEY='migym-v2', LEGACY_KEY='gymapp1', D=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 const BF=['cintura','cadera','brazo','pierna','pecho'], CAP=3;
@@ -56,7 +56,7 @@ function normalizeLegacy(raw){
  ex.forEach(x=>{if(!Array.isArray(x.ms))x.ms=[x.m||'otro'];if(!Array.isArray(x.s))x.s=[];x.note=x.note||'';x.u=x.u||'kg'});
  return {version:2,theme:'auto',profile:normalizeProfile(s.profile),ex,rt:Array.isArray(s.rt)?s.rt:defaults.rt,plan:s.plan||seedPlan(),chk:Array.isArray(s.chk)?s.chk:seedChk(),chkLog,
   n:Math.max(Number(s.n)||100,110),stages:[{id:sid,name:'Etapa inicial',start:first,archivedAt:null,baseWeight:initialWeight,checkpoints:[],targetNote:''}],activeId:sid,
-  hist:(s.hist||[]).filter(x=>validDate(x.d)).map(x=>({...x,stageId:sid})),
+  hist:(s.hist||[]).filter(x=>validDate(x.d)).map(x=>({...x,stageId:sid})),sessions:[],
   food:(s.food||[]).filter(x=>validDate(x.d)).map(x=>normalFood(x,sid)),
   body:(s.body||[]).filter(x=>validDate(x.d)).map(x=>({...x,stageId:sid})),prog:s.prog?{...s.prog,stageId:sid}:null};
 }
@@ -64,21 +64,24 @@ function validateLoaded(obj){
  if(!obj||typeof obj!=='object')throw Error('El archivo no contiene datos válidos');
  if(obj.version===2){
   if(!Array.isArray(obj.stages)||!Array.isArray(obj.ex)||!Array.isArray(obj.rt)||!Array.isArray(obj.hist)||!Array.isArray(obj.food)||!Array.isArray(obj.body)||!Array.isArray(obj.chk)||!obj.stages.some(s=>s.id===obj.activeId))throw Error('El backup v2 está incompleto');
-  return {...obj,profile:normalizeProfile(obj.profile),plan:obj.plan||seedPlan(),chkLog:obj.chkLog||{},prog:obj.prog||null,n:obj.n||100,theme:['auto','dark','light'].includes(obj.theme)?obj.theme:'auto'};
+  return {...obj,profile:normalizeProfile(obj.profile),sessions:Array.isArray(obj.sessions)?obj.sessions:[],plan:obj.plan||seedPlan(),chkLog:obj.chkLog||{},prog:obj.prog||null,n:obj.n||100,theme:['auto','dark','light'].includes(obj.theme)?obj.theme:'auto'};
  }
  if(Array.isArray(obj.ex)&&Array.isArray(obj.rt))return normalizeLegacy(obj);
  throw Error('No es un backup de Mi Gym');
 }
 let STATE;
 let storageOk=true;
+let storageReadError=false;
 try{
  const current=localStorage.getItem(KEY);
  const old=localStorage.getItem(LEGACY_KEY);
  STATE=current?validateLoaded(JSON.parse(current)):old?normalizeLegacy(JSON.parse(old)):normalizeLegacy({...seed(),plan:Object.fromEntries(Object.entries(seedPlan()).map(([day,p])=>[day,{...p,max:0}]))});
-}catch(e){console.error('Error loading local data',e);STATE=normalizeLegacy({...seed(),plan:Object.fromEntries(Object.entries(seedPlan()).map(([day,p])=>[day,{...p,max:0}]))});storageOk=false}
+}catch(e){console.error('Error loading local data',e);STATE=normalizeLegacy({...seed(),plan:Object.fromEntries(Object.entries(seedPlan()).map(([day,p])=>[day,{...p,max:0}]))});storageOk=false;storageReadError=true}
 const S=STATE;
 const ui={page:'inicio',period:30,viewStage:null,calendarOffset:0,exerciseId:null,activityMonthOffset:0};
 function persist(){
+ // Un archivo local dañado no se debe sobrescribir silenciosamente por datos vacíos.
+ if(storageReadError){storageOk=false;toast('No se guardó: recuperá tu backup desde Ajustes');return}
  try{localStorage.setItem(KEY,JSON.stringify(S));storageOk=true}
  catch(e){storageOk=false;console.error('No se pudieron guardar los datos',e);toast('No se pudieron guardar los datos: revisá el almacenamiento')}
 }
@@ -190,10 +193,9 @@ function rangeDates(n,end=stageEnd()){
 function activeDates(){
  const end=stageEnd();
  if(ui.period==='todo'){
-  const all=[...rec('hist'),...rec('food'),...rec('body')].map(x=>x.d).filter(validDate).sort();
-  const earliest=all[0]||stage().start;
-  const dayCount=Math.max(1,daysBetween(earliest,end)+1);
-  return rangeDates(Math.min(dayCount,730),end);
+  // Toda la etapa, sin recortar silenciosamente el historial a dos años.
+  const dayCount=Math.max(1,daysBetween(stage().start,end)+1);
+  return rangeDates(dayCount,end);
  }
  return rangeDates(ui.period,end);
 }
@@ -307,7 +309,7 @@ function render(){
  document.documentElement.dataset.theme=S.theme||'auto';
  const screens={inicio:pageHome,gym:pageGym,alimentacion:pageFood,progreso:pageProgress,ajustes:pageSettings};
  const view=screens[ui.page]||pageHome;
- $('#app').innerHTML=`<div class="layout"><aside class="sidebar"><div class="brand"><div class="brand-mark">🏋</div><div><div class="brand-name">Mi Gym</div><div class="brand-sub">TU PROGRESO</div></div></div><nav class="sidenav">${navHtml()}</nav><div class="sidebar-bottom"><div class="mini-status">🔒 Datos guardados en este dispositivo</div><div class="mini-status">${storageOk?'● Guardado local':'⚠ Error de almacenamiento'}</div></div></aside><div class="main">${header()}${!editing()?`<div class="alert warn" style="margin-bottom:18px"><div class="alert-ic">🗂</div><div class="grow"><h3>Estás consultando una etapa archivada</h3><p class="small muted">Podés ver el historial, pero no editarlo.</p></div><button class="btn sm" data-action="view-active">Volver a la actual</button></div>`:''}${view()}</div></div><div class="bottom-nav">${navHtml(true)}</div>`;
+ $('#app').innerHTML=`<div class="layout"><aside class="sidebar"><div class="brand"><div class="brand-mark">🏋</div><div><div class="brand-name">Mi Gym</div><div class="brand-sub">TU PROGRESO</div></div></div><nav class="sidenav">${navHtml()}</nav><div class="sidebar-bottom"><div class="mini-status">🔒 Datos guardados en este dispositivo</div><div class="mini-status">${storageOk?'● Guardado local':'⚠ Error de almacenamiento'}</div></div></aside><div class="main">${header()}${storageReadError?'<div class="alert warn" style="margin-bottom:18px"><div class="alert-ic">⚠️</div><div class="grow"><h3>No se pudieron leer tus registros guardados</h3><p class="small muted">Por seguridad, no vamos a sobrescribirlos. Restaurá un backup válido desde Ajustes antes de continuar registrando datos.</p></div></div>':''}${!editing()?`<div class="alert warn" style="margin-bottom:18px"><div class="alert-ic">🗂</div><div class="grow"><h3>Estás consultando una etapa archivada</h3><p class="small muted">Podés ver el historial, pero no editarlo.</p></div><button class="btn sm" data-action="view-active">Volver a la actual</button></div>`:''}${view()}</div></div><div class="bottom-nav">${navHtml(true)}</div>`;
 }
 function sectionTitle(title,subtitle){return `<div class="page-heading"><div class="eyebrow">${escapeHtml(subtitle)}</div><h1>${escapeHtml(title)}</h1></div>`}
 function pill(text,type='neutral'){return `<span class="pill ${type}">${escapeHtml(text)}</span>`}
@@ -334,28 +336,55 @@ function exercise(id){return S.ex.find(x=>x.id==id)}
 function sessionElapsedMs(pg=S.prog){if(!pg?.startedAt)return 0;return Math.max(0,Date.now()-pg.startedAt+(pg.elapsedMs||0))}
 function sessionDateTimeLabel(ts){if(!ts)return '—';return new Date(ts).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}
 function seriesHTML(sets,e){const unit=(e?.u||'kg').trim();return `<div class="set-board">${(sets||e?.s||[]).map(s=>`<div class="set-card"><div class="set-col"><span class="set-label">${escapeHtml(unit)}</span><strong>${escapeHtml(s.w)}</strong></div><div class="set-col"><span class="set-label">Reps</span><strong>${escapeHtml(s.r)}</strong></div></div>`).join('')}</div>`}
-function buildSessionSummary(pg){
- const routine=S.rt.find(r=>r.id==pg?.r);
- const allLogs=(S.hist||[]).filter(x=>x.stageId===S.activeId&&x.d===pg?.d&&pg?.done?.includes(x.e));
- const unique=new Map();
- allLogs.forEach(log=>{if(!unique.has(log.e))unique.set(log.e,log)});
- const logs=[...unique.values()];
- const duration=formatDuration(sessionElapsedMs(pg));
- const list=logs.map(log=>{const e=exercise(log.e);const unit=(e?.u||'').trim();const sets=(log.s||[]).map(x=>`${x.w}${unit?` ${unit}`:''} x ${x.r}`).join(' · ');return `- ${exerciseName(log.e)}: ${sets}`}).join('\n');
- const title=`Rutina: ${routine?.name||'Entrenamiento'} (${pg?.d||iso()})`;
- const summary=`${title}\nDuración: ${duration}\nEjercicios completados: ${logs.length} de ${pg?.sel?.length||logs.length}\n\n${list||'- Sin ejercicios registrados'}`;
- const prompt=`Tomá este resumen de entrenamiento y devolveme SOLO un JSON con este formato: {"fecha":"AAAA-MM-DD","kcal_quemadas_gym":0,"duracion_min":0,"resumen":""}. Si necesitás estimar calorías, hacelo en base a la duración y a los ejercicios realizados.\n\n${summary}`;
- return {routineName:routine?.name||'Entrenamiento',duration,completed:logs.length,total:pg?.sel?.length||logs.length,summary,prompt,startLabel:sessionDateTimeLabel(pg?.startedAt)}
+// La identidad de cada sesión evita mezclar entrenamientos diferentes del mismo día.
+function sessionLogs(pg){
+ const all=(S.hist||[]).filter(x=>x.stageId===pg?.stageId&&x.d===pg?.d&&(x.r==pg?.r||x.r==null));
+ return (pg?.done||[]).map(id=>all.slice().reverse().find(x=>x.e==id&&(x.sessionId===pg.id||(!x.sessionId&&(!pg.id||!all.some(y=>y.e==id&&y.sessionId===pg.id)))))).filter(Boolean);
+}
+function exerciseSummaryLine(log){
+ const e=exercise(log.e),unit=(e?.u||'').trim();
+ const sets=(log.s||[]).map(x=>`${x.w}${unit?' '+unit:''} × ${x.r}`).join(' · ');
+ return `• ${exerciseName(log.e)}: ${sets||'Sin series registradas'}`;
+}
+function workoutPrompt(summary){
+ return `Analizá este entrenamiento. Estimá las calorías gastadas SOLO en esta sesión de gimnasio si contás con datos suficientes; no las confundas con el gasto energético total diario. Si no se puede estimar, usá null; no inventes una cifra precisa. Devolveme únicamente JSON válido con el formato {"fecha":"AAAA-MM-DD","kcal_quemadas_gym":null,"duracion_min":null,"resumen":""}. Completá la fecha y duración únicamente si aparecen en los datos.\n\n${summary}`;
+}
+function buildSessionSummary(pg,endedAt=Date.now()){
+ const routine=S.rt.find(r=>r.id==pg?.r),logs=sessionLogs(pg);
+ const durationMs=pg?.startedAt?Math.max(0,endedAt-pg.startedAt+(pg.elapsedMs||0)):null;
+ const duration=durationMs===null?'No registrada':formatDuration(durationMs);
+ const summary=`Rutina: ${routine?.name||'Entrenamiento'} (${pg?.d||iso()})\nDuración: ${duration}\nEjercicios completados: ${logs.length} de ${pg?.sel?.length??logs.length}\n\n${logs.map(exerciseSummaryLine).join('\n')||'• Sin ejercicios registrados'}`;
+ return {routineName:routine?.name||'Entrenamiento',duration,durationMs,completed:logs.length,total:pg?.sel?.length??logs.length,summary,prompt:workoutPrompt(summary),logs};
+}
+function copyText(text,source,label='Texto'){
+ const fallback=()=>{
+  const field=source||document.createElement('textarea');
+  if(!source){field.value=text;field.setAttribute('readonly','');field.style.position='fixed';field.style.opacity='0';document.body.appendChild(field)}
+  const details=field.closest('details');if(details)details.open=true;
+  field.focus();field.select();field.setSelectionRange?.(0,field.value.length);
+  let copied=false;
+  try{copied=!!document.execCommand?.('copy')}catch(e){copied=false}
+  if(!source)field.remove();
+  toast(copied?label+' copiado': 'No se pudo copiar automáticamente. Seleccioná el texto para copiarlo.');
+  return copied;
+ };
+ if(navigator.clipboard?.writeText){
+  navigator.clipboard.writeText(text).then(()=>toast(label+' copiado')).catch(fallback);
+ }else fallback();
 }
 function openSessionSummary(summary){
- showModal('Resumen del entrenamiento',`<div class="stack"><div class="cards-2"><div class="muted-box"><div class="stat-label">Rutina</div><strong>${escapeHtml(summary.routineName)}</strong></div><div class="muted-box"><div class="stat-label">Tiempo</div><strong>${escapeHtml(summary.duration)}</strong></div></div><div class="muted-box"><div class="stat-label">Resumen para vos</div><textarea readonly rows="8">${escapeHtml(summary.summary)}</textarea></div><div class="muted-box"><div class="stat-label">Prompt para IA</div><textarea readonly rows="12">${escapeHtml(summary.prompt)}</textarea><div class="field-note">Podés copiar esto y pegarlo en tu chat para pedir calorías quemadas o un bloque JSON.</div></div></div>`,[{label:'Cerrar',onClick:()=>{}},{label:'Copiar resumen',onClick:()=>navigator.clipboard?.writeText(summary.summary).then(()=>toast('Resumen copiado')).catch(()=>toast('No se pudo copiar'))},{label:'Copiar prompt IA',kind:'primary',onClick:()=>navigator.clipboard?.writeText(summary.prompt).then(()=>toast('Prompt copiado')).catch(()=>toast('No se pudo copiar'))}])
+ showModal('Resumen del entrenamiento',`<div class="stack"><div class="cards-2"><div class="muted-box"><div class="stat-label">Rutina</div><strong>${escapeHtml(summary.routineName)}</strong></div><div class="muted-box"><div class="stat-label">Tiempo</div><strong>${escapeHtml(summary.duration)}</strong></div></div><div class="muted-box"><div class="stat-label">Resumen para vos</div><textarea data-copy-summary readonly rows="8">${escapeHtml(summary.summary)}</textarea></div><div class="muted-box"><div class="stat-label">Prompt para IA</div><textarea data-copy-prompt readonly rows="10">${escapeHtml(summary.prompt)}</textarea><div class="field-note">El gasto del gimnasio es distinto del gasto energético total diario de Comidas.</div></div></div>`,[
+  {label:'Cerrar',onClick:()=>{}},
+  {label:'📋 Copiar resumen',onClick:el=>{copyText(summary.summary,el.querySelector('[data-copy-summary]'),'Resumen');return false}},
+  {label:'📋 Copiar prompt IA',kind:'primary',onClick:el=>{copyText(summary.prompt,el.querySelector('[data-copy-prompt]'),'Prompt');return false}}
+ ]);
 }
 function routineCard(r){
  const count=(r.items||[]).length;
  return `<div class="list-item"><div class="badge-round large-icon">🏋</div><div class="maintext"><strong>${escapeHtml(r.name)}</strong><small>${escapeHtml(D[r.day])} · ${count} ejercicios · ${r.need||count} previstos</small></div>${editing()?`<button class="btn sm primary" data-action="routine-start" data-id="${r.id}">Empezar</button>`:''}</div>`;
 }
 function session(){
- const pg=S.prog;if(!pg||pg.stageId!==S.activeId||pg.d!==iso())return '';
+ const pg=S.prog;if(!pg||pg.stageId!==S.activeId)return '';
  if(!pg.startedAt){pg.startedAt=Date.now();persist()}
  const r=S.rt.find(r=>r.id==pg.r);if(!r)return '';
  const sel=pg.sel||[],done=pg.done||[],remaining=Math.max(sel.length-done.length,0);
@@ -426,7 +455,7 @@ function pageSettings(){
  <div class="card"><div class="card-title"><h2>Etapas e historial</h2>${editing()?'<button class="btn sm primary" data-action="stage-new">+ Nueva etapa</button>':''}</div><p class="small muted mb">Archivar una etapa no elimina sus registros ni altera tus rutinas.</p><div class="list-items">${S.stages.slice().reverse().map(st=>`<div class="list-item"><span style="font-size:19px">${st.id===S.activeId?'💗':'🗂'}</span><div class="maintext"><strong>${escapeHtml(st.name)}</strong><small>${escapeHtml(st.start)}${st.archivedAt?' → '+escapeHtml(st.archivedAt):' · actual'} · ${S.food.filter(x=>x.stageId===st.id).length} días de alimentación</small></div><button class="btn sm" data-action="stage-view" data-id="${escapeAttr(st.id)}">${st.id===stage().id?'Viendo':'Ver'}</button></div>`).join('')}</div></div>
  <div class="card"><div class="card-title"><h2>Mis ejercicios y rutinas</h2></div><div class="btn-row"><button class="btn" data-action="ex-list">🏋 Gestionar ejercicios (${S.ex.length})</button><button class="btn" data-action="routine-edit">📋 Editar rutinas (${S.rt.length})</button><button class="btn" data-action="plan-edit">📅 Plan semanal</button><button class="btn" data-action="checklist-config">☑️ Editar checklist</button></div></div>
  <div class="card"><div class="card-title"><h2>Datos y respaldo</h2>${pill('100% local','good')}</div><p class="small muted mb">Tus datos están guardados en este navegador. Al borrar sus datos, cambiar de celular o reinstalarlo, podés perderlos si no exportás un backup.</p><div class="btn-row"><button class="btn primary" data-action="export">⬇ Descargar backup JSON</button><button class="btn" data-action="import">⬆ Importar backup JSON</button></div><p class="no-data-note">Se mantiene intacta la clave anterior (<code>gymapp1</code>) si venías de la versión 1. Importar reemplaza los datos de v2 después de pedir confirmación.</p></div>
- <div class="card"><div class="card-title"><h2>Acerca de Mi Gym 2.1</h2></div><p class="small muted">HTML, CSS y JavaScript, sin bibliotecas externas. Instalable como PWA con uso offline. Sin cuenta, sin sincronización y sin enviar tus datos a ningún servidor.</p></div></div>`;
+ <div class="card"><div class="card-title"><h2>Acerca de Mi Gym 2.5</h2></div><p class="small muted">HTML, CSS y JavaScript, sin bibliotecas externas. Instalable como PWA con uso offline. Sin cuenta, sin sincronización y sin enviar tus datos a ningún servidor.</p></div></div>`;
 }
 /* ---------- Accessible editing dialogs ---------- */
 function closeModal(){const root=$('#modal-root');root.innerHTML='';document.body.style.overflow=''}
@@ -437,7 +466,7 @@ function showModal(title,html,actions=[],opts={}){
  root.querySelector('[data-close]').onclick=closeModal;
  root.querySelector('.modal-backdrop').addEventListener('click',e=>{if(e.target.dataset.backdrop)closeModal()});
  root.querySelectorAll('[data-modal-action]').forEach(btn=>btn.onclick=()=>{
-  try{const result=actions[Number(btn.dataset.modalAction)].onClick(el);if(result!==false)closeModal()}
+  try{const previousModal=root.firstElementChild;const result=actions[Number(btn.dataset.modalAction)].onClick(el);if(result!==false&&root.firstElementChild===previousModal)closeModal()}
   catch(e){toast(e.message||'Revisá los datos');console.error(e)}
  });
  if(opts.onOpen)opts.onOpen(el);
@@ -596,18 +625,19 @@ function chooseStage(id){ui.viewStage=id===S.activeId?null:id;ui.period=30;ui.ca
 function startSession(id){
  if(!editing())return;
  const r=S.rt.find(x=>x.id==id);if(!r)return toast('Rutina no encontrada');
- if(S.prog&&S.prog.stageId===S.activeId&&S.prog.d===iso()){
+ if(S.prog&&S.prog.stageId===S.activeId){
   return confirmModal('¿Cambiar rutina?','Hay un entrenamiento en curso. Los ejercicios ya registrados seguirán en el historial, pero la lista pendiente se reemplazará.',()=>{S.prog=null;startSession(id)},'Cambiar rutina');
  }
  const selected=(r.items||[]).filter(it=>!it.opt).map(it=>it.e);
  // Optional exercises are offered separately; do not silently add them.
- S.prog={d:iso(),stageId:S.activeId,r:r.id,sel:selected,done:[],startedAt:Date.now(),elapsedMs:0};
+ S.prog={id:uid(),d:iso(),stageId:S.activeId,r:r.id,sel:selected,done:[],startedAt:Date.now(),elapsedMs:0};
  persist();ui.page='gym';render();window.scrollTo(0,0);
 }
 function logExercise(id,sets=null){
  if(!editing()||!S.prog||!S.prog.sel.includes(id)||S.prog.done.includes(id))return;
  const e=exercise(id);if(!e)return;
- S.hist.push({d:iso(),stageId:S.activeId,e:e.id,r:S.prog.r,s:(sets||e.s).map(x=>({...x}))});
+ if(!S.prog.id)S.prog.id=uid();
+ S.hist.push({d:S.prog.d,stageId:S.activeId,sessionId:S.prog.id,e:e.id,r:S.prog.r,s:(sets||e.s).map(x=>({...x}))});
  S.prog.done.push(id);persist();render();toast('¡Ejercicio anotado!');
 }
 function editSessionSeries(id){
@@ -645,8 +675,13 @@ function finishSession(){
  const execute=()=>{
   const snapshot=JSON.parse(JSON.stringify(S.prog));
   const gymHabit=S.chk.find(c=>/ir al gym/i.test(c.t))||S.chk.find(c=>/^gym/i.test(c.t));
-  if(gymHabit&&snapshot.done.length){const key=S.activeId+'|'+iso();S.chkLog[key]=S.chkLog[key]||{};S.chkLog[key][gymHabit.id]=true}
-  const summary=buildSessionSummary(snapshot);
+  if(gymHabit&&snapshot.done.length){const key=S.activeId+'|'+snapshot.d;S.chkLog[key]=S.chkLog[key]||{};S.chkLog[key][gymHabit.id]=true}
+  snapshot.id=snapshot.id||uid();
+  const endedAt=Date.now(),summary=buildSessionSummary(snapshot,endedAt);
+  // Los logs de una sesión iniciada antes de actualizar pueden carecer de sessionId.
+  summary.logs.forEach(log=>{if(!log.sessionId)log.sessionId=snapshot.id});
+  S.sessions=S.sessions||[];
+  S.sessions.push({id:snapshot.id,stageId:snapshot.stageId,d:snapshot.d,r:snapshot.r,routineName:summary.routineName,startedAt:snapshot.startedAt||null,endedAt,durationMs:summary.durationMs,planned:snapshot.sel.length,completed:summary.completed});
   S.prog=null;persist();render();toast('¡Rutina terminada! 💗');openSessionSummary(summary);
  };
  if(incomplete)return confirmModal('¿Finalizar la sesión?',`Te quedan ${incomplete} ejercicios por marcar. Los que completaste ya están guardados.`,execute,'Finalizar');
@@ -694,13 +729,13 @@ function gymProgressChart(){
 }
 // Render the dedicated exercise progression chart instead of treating every workout day as a flat 1-point line.
 function pageGym(){
- if(editing()&&S.prog&&S.prog.stageId===S.activeId&&S.prog.d===iso())return session();
+ if(editing()&&S.prog&&S.prog.stageId===S.activeId)return session();
  const count=rec('hist').length,trained=new Set(rec('hist').map(x=>x.d)).size;
  return `<div class="content">${sectionTitle('Mis entrenamientos','GYM')}
  <div class="cards-2">${stat('Días entrenados',fmt(trained),'días','En esta etapa')}${stat('Ejercicios anotados',fmt(count),'','Cada ejercicio completado')}</div>
  <div class="card"><div class="card-title"><div><h2>Rutinas</h2><p class="small muted">Elegí la que hagas hoy; podés cambiar el orden.</p></div>${editing()?'<button class="btn sm" data-action="routine-edit">Gestionar</button>':''}</div><div class="list-items">${S.rt.map(routineCard).join('')||'<div class="nothing">Todavía no hay rutinas.</div>'}</div></div>
  <div class="row between wrap"><div><h2>Progreso real</h2><p class="small muted">Cargas y constancia en el tiempo</p></div>${periodButtons()}</div>${gymProgressChart()}
- <div class="card"><div class="card-title"><h2>Días de entrenamiento</h2></div><div class="table-wrap"><table class="table"><thead><tr><th>Fecha</th><th>Ejercicios registrados</th></tr></thead><tbody>${[...new Set(rec('hist').map(x=>x.d))].sort().reverse().slice(0,20).map(d=>`<tr><td>${d}</td><td>${rec('hist').filter(x=>x.d===d).length} <button class="btn sm ghost" data-action="gym-history" data-date="${d}">Ver</button></td></tr>`).join('')||'<tr><td colspan="2">Sin registros todavía.</td></tr>'}</tbody></table></div></div>${calendar()}</div>`;
+ <div class="card"><div class="card-title"><h2>Días de entrenamiento</h2></div><div class="table-wrap"><table class="table"><thead><tr><th>Fecha</th><th>Ejercicios registrados</th></tr></thead><tbody>${[...new Set([...rec('hist').map(x=>x.d),...(S.sessions||[]).filter(x=>x.stageId===stage().id).map(x=>x.d)])].sort().reverse().slice(0,20).map(d=>`<tr><td>${d}</td><td>${rec('hist').filter(x=>x.d===d).length} <button class="btn sm ghost" data-action="gym-history" data-date="${d}">Ver</button></td></tr>`).join('')||'<tr><td colspan="2">Sin registros todavía.</td></tr>'}</tbody></table></div></div>${calendar()}</div>`;
 }
 
 /* ---------- Actions + boot ---------- */
@@ -755,9 +790,9 @@ $('#import-file').addEventListener('change',async e=>{
  try{
   if(f.size>8*1024*1024)throw Error('El archivo es demasiado grande');
   const candidate=validateLoaded(JSON.parse(await f.text()));
-  confirmModal('Importar copia de seguridad','Este archivo reemplazará todos los datos actuales de Mi Gym 2.0 en este dispositivo. Exportá antes un backup si querés conservarlos.',()=>{
+  confirmModal('Importar copia de seguridad','Este archivo reemplazará todos los datos actuales de Mi Gym en este dispositivo. Exportá antes un backup si querés conservarlos.',()=>{
    // Validate first, then replace the in-memory state in one step.
-   Object.keys(S).forEach(k=>delete S[k]);Object.assign(S,candidate);
+   Object.keys(S).forEach(k=>delete S[k]);Object.assign(S,candidate);storageReadError=false;
    ui.viewStage=null;ui.page='inicio';ui.period=30;ui.calendarOffset=0;ui.exerciseId=null;
    persist();render();toast('Backup importado correctamente');
   },'Importar y reemplazar',true);
@@ -767,11 +802,35 @@ $('#import-file').addEventListener('change',async e=>{
 if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('Offline no disponible:',e)));
 }
-milestones();persist();render();
+milestones();if(!storageReadError)persist();render();
 /* Extra corrections for historical workout data. */
+// Resumen histórico compatible con registros previos, en los que no se guardaba duración.
+function historySummary(d,entries,sessions){
+ const sections=[],used=new Set();
+ const allSessions=[...sessions].sort((a,b)=>(a.startedAt||0)-(b.startedAt||0));
+ for(const item of allSessions){
+  const group=entries.filter(x=>x.sessionId===item.id);
+  group.forEach(x=>used.add(x.idx));
+  const name=item.routineName||S.rt.find(x=>x.id==item.r)?.name||'Entrenamiento';
+  const length=Number.isFinite(item.durationMs)?formatDuration(item.durationMs):'No registrada';
+  sections.push(`Rutina: ${name}\nDuración: ${length}\nEjercicios completados: ${group.length}${Number.isFinite(item.planned)?' de '+item.planned:''}\n${group.map(exerciseSummaryLine).join('\n')||'• Sin ejercicios registrados'}`);
+ }
+ const past=entries.filter(x=>!used.has(x.idx));
+ const groups=new Map();
+ for(const item of past){const key=String(item.r??'sin-rutina');if(!groups.has(key))groups.set(key,[]);groups.get(key).push(item)}
+ for(const [key,group] of groups){
+  const name=S.rt.find(x=>String(x.id)===key)?.name||'Entrenamiento anterior';
+  sections.push(`Rutina: ${name}\nDuración: No registrada (registro anterior)\nEjercicios registrados: ${group.length}\n${group.map(exerciseSummaryLine).join('\n')}`);
+ }
+ return `Entrenamiento del ${d}\n\n${sections.join('\n\n')||'Sin ejercicios registrados'}`;
+}
 function gymHistory(d){
  const entries=S.hist.map((x,i)=>({...x,idx:i})).filter(x=>x.stageId===stage().id&&x.d===d);
- showModal('Entrenamiento · '+d,`<div class="list-items">${entries.map(x=>{const e=exercise(x.e);return `<div class="list-item"><div class="maintext"><strong>${escapeHtml(exerciseName(x.e))}</strong><div class="exercise-sets">${seriesHTML(x.s,e)}</div></div>${editing()?`<button class="btn sm" data-edit="${x.idx}">✎</button><button class="btn sm danger" data-trash="${x.idx}" aria-label="Eliminar ejercicio registrado">×</button>`:''}</div>`}).join('')||'<div class="nothing">Sin ejercicios registrados</div>'}</div>`,[{label:'Cerrar',onClick:()=>{}}],{onOpen:el=>{
+ const sessions=(S.sessions||[]).filter(x=>x.stageId===stage().id&&x.d===d);
+ const summary=historySummary(d,entries,sessions),prompt=workoutPrompt(summary);
+ showModal('Entrenamiento · '+d,`<div class="stack"><div class="history-copy-actions"><button class="btn primary" data-history-copy="summary">📋 Copiar resumen</button><button class="btn" data-history-copy="prompt">📋 Copiar prompt IA</button></div><div class="muted-box"><div class="stat-label">Resumen del día</div><textarea readonly rows="7" data-history-summary>${escapeHtml(summary)}</textarea><p class="field-note">Las sesiones registradas antes de esta versión no tienen duración guardada; no la estimamos.</p></div><details class="history-export"><summary>Ver prompt para IA</summary><textarea readonly rows="9" data-history-prompt>${escapeHtml(prompt)}</textarea></details><div class="list-items">${entries.map(x=>{const e=exercise(x.e);return `<div class="list-item"><div class="maintext"><strong>${escapeHtml(exerciseName(x.e))}</strong><div class="exercise-sets">${seriesHTML(x.s,e)}</div></div>${editing()?`<button class="btn sm" data-edit="${x.idx}" aria-label="Editar registro">✎</button><button class="btn sm danger" data-trash="${x.idx}" aria-label="Eliminar ejercicio registrado">×</button>`:''}</div>`}).join('')||'<div class="nothing">Sin ejercicios registrados</div>'}</div></div>`,[{label:'Cerrar',onClick:()=>{}}],{onOpen:el=>{
+  el.querySelector('[data-history-copy="summary"]').onclick=()=>copyText(summary,el.querySelector('[data-history-summary]'),'Resumen');
+  el.querySelector('[data-history-copy="prompt"]').onclick=()=>copyText(prompt,el.querySelector('[data-history-prompt]'),'Prompt');
   el.querySelectorAll('[data-trash]').forEach(btn=>btn.onclick=()=>{
    const idx=Number(btn.dataset.trash),item=S.hist[idx];
    if(!item||item.stageId!==S.activeId)return;

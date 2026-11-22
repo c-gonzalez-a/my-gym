@@ -1,6 +1,6 @@
 // Network first for HTML/CSS/JS, cache first for icons. Keeps offline support
 // without trapping the user on an outdated version after a GitHub Pages deploy.
-const CACHE = 'mi-gym-2-v2.4.0';
+const CACHE = 'mi-gym-2-v2.5.0';
 const APP = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(APP)));
@@ -8,7 +8,7 @@ self.addEventListener('install', event => {
 });
 self.addEventListener('activate', event => {
   event.waitUntil(Promise.all([
-    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))),
+    caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('mi-gym-2-') && k !== CACHE).map(k => caches.delete(k)))),
     self.clients.claim()
   ]));
 });

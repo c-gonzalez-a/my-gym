@@ -1,4 +1,4 @@
-# 💗 Mi Gym 2.4
+# 💗 Mi Gym 2.5
 
 Aplicación personal **instalable como PWA** para registrar entrenamientos, alimentación, hábitos, peso y medidas. Diseño responsive, con temas claro, oscuro y automático. **Sin cuentas, sin servidor, sin dependencia de servicios externos para funcionar y usable offline** después de la primera visita por HTTPS.
 
@@ -9,7 +9,7 @@ Aplicación personal **instalable como PWA** para registrar entrenamientos, alim
 1. Abrí tu versión actual, en **Gym → Gestionar → Backup → Exportar**.
 2. Guardá el archivo `.json` en un lugar seguro, fuera del navegador.
 3. Actualizá tu repositorio de GitHub como se explica más abajo.
-4. Abrí la app nueva desde **el mismo enlace de GitHub Pages y el mismo navegador/dispositivo**. Mi Gym 2.4 intentará migrar automáticamente los datos guardados bajo la clave antigua `gymapp1`.
+4. Abrí la app nueva desde **el mismo enlace de GitHub Pages y el mismo navegador/dispositivo**. Mi Gym 2.5 intentará migrar automáticamente los datos guardados bajo la clave antigua `gymapp1`.
 5. Verificá tus rutinas, alimentación, pesajes y entrenamientos. Si no aparecen porque cambiaste de navegador, URL o dispositivo, abrí **Ajustes → Importar backup JSON** y seleccioná el respaldo que descargaste.
 6. Cuando estés conforme, elegí **Ajustes → Nueva etapa**. La anterior quedará archivada y la nueva empezará con su propio historial. El botón no elimina información previa.
 
@@ -17,7 +17,7 @@ Aplicación personal **instalable como PWA** para registrar entrenamientos, alim
 
 ## Actualizar GitHub Pages
 
-1. Descomprimí `Mi-Gym-2.4.zip`.
+1. Descomprimí `Mi-Gym-2.5-completo.zip`.
 2. Subí **los archivos que están dentro** del ZIP a la **raíz** del mismo repositorio que ya publica tu app. Reemplazá `index.html`, `manifest.webmanifest`, `sw.js` y los íconos. Agregá los nuevos `app.js`, `styles.css`, `README.md` y `CHANGELOG.md`.
 3. Confirmá el commit en la rama publicada (por ejemplo `main`). Si no tenés Pages configurado: **Settings → Pages → Deploy from a branch → `main` → `/ (root)`**.
 4. Abrí tu URL de GitHub Pages. Esperá la publicación y recargá la página. Si ves la versión vieja, cerrá y abrí nuevamente la app; el Service Worker antiguo guardaba una versión en caché.
@@ -25,7 +25,7 @@ Aplicación personal **instalable como PWA** para registrar entrenamientos, alim
 
 Si no querés publicar todavía, `index.html` puede abrirse en una computadora junto a `app.js` y `styles.css`; sin embargo, algunos navegadores restringen el almacenamiento local en archivos `file://`, y el modo offline instalable necesita HTTPS. La prueba recomendada es desde GitHub Pages.
 
-## ¿Qué incluye la versión 2.4?
+## ¿Qué incluye la versión 2.5?
 
 ### Inicio
 
@@ -46,7 +46,7 @@ Si no querés publicar todavía, `index.html` puede abrirse en una computadora j
 - Carga y corrección de días, macros y gasto energético estimado.
 - Importación desde Gemini mediante bloques JSON (un día o una lista de días).
 - Gráficos de balance, comidas vs. gasto y macronutrientes, con escalas basadas en **fechas reales**.
-- Vista de 7, 30, 90 días o hasta 730 días de historial.
+- Vista de 7, 30, 90 días o todo el historial de la etapa, sin límite artificial de dos años.
 - Un día **sin gasto registrado** queda **incompleto**; no se interpreta como `0 kcal` de gasto.
 - Las estimaciones de gasto que recibís de Gemini no son mediciones objetivas ni deben considerarse precisas.
 
@@ -124,3 +124,16 @@ Referencias generales de los cálculos: [CDC — Body Mass Index](https://www.cd
 - Temporizador visible durante el entrenamiento, con resumen y prompt para IA al finalizar.
 - IMC con escala visual, aguja, categorías y aclaración del rango de referencia 18,5–24,9.
 - Aviso pendiente de Progreso superpuesto sobre el ícono de navegación.
+
+### Novedades de la versión 2.5
+
+- Corrección del resumen final: cuando una sesión termina con ejercicios pendientes, el diálogo de confirmación ya no cierra el resumen inmediatamente.
+- Acciones de **Copiar resumen** y **Copiar prompt IA** al finalizar, y también al abrir **Gym → Días de entrenamiento → Ver**. Se mantiene la opción de seleccionar manualmente el texto si el navegador bloquea el portapapeles.
+- Las sesiones nuevas conservan rutina, fecha, duración, inicio y finalización, además de vincular los ejercicios efectivamente registrados. Los respaldos existentes de la versión 2 siguen siendo compatibles.
+- El historial anterior sigue disponible; como las versiones previas no guardaban la duración de cada sesión finalizada, allí aparece **No registrada**, nunca una duración inventada.
+- Una sesión iniciada antes de medianoche puede finalizarse sin que desaparezca de Gym al cambiar el día.
+- El JSON sugerido para IA distingue calorías del gimnasio de **gasto energético total diario**; los campos desconocidos son `null`.
+
+**Importante:** guardá un backup antes de actualizar. No borres los datos de la aplicación ni inicies una etapa nueva para instalar esta versión. El almacenamiento conserva la clave `migym-v2` y las etapas existentes.
+
+**Protección de datos:** si el almacenamiento contiene datos inválidos, Mi Gym muestra una advertencia y no los reemplaza por registros vacíos. Se puede recuperar desde un respaldo JSON válido.

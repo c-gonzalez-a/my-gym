@@ -1,3 +1,16 @@
+# Mi Gym 2.5
+
+- Corregido el cierre involuntario del resumen al confirmar la finalización con ejercicios pendientes.
+- Portapapeles robusto y opciones Copiar resumen / Copiar prompt en sesión finalizada y en Ver historial.
+- Persistencia no destructiva de metadatos de sesión (fecha, rutina, duración, inicio y fin) y asociación de series registradas.
+- Compatibilidad con backups anteriores sin inventar duraciones históricas.
+- Sesiones iniciadas el día anterior recuperables en Gym.
+- Evita sobrescribir registros locales cuando falla su lectura; permite restaurarlos mediante backup.
+- Prompt de IA con valores desconocidos `null` y distinción entre gasto de gym y total diario.
+- UI responsive del resumen histórico, documentación y caché PWA a 2.5.0.
+- El Service Worker sólo limpia cachés anteriores de Mi Gym; no elimina cachés de otras aplicaciones del mismo origen.
+- El filtro «Todo» abarca ahora la etapa completa, sin recortar el historial a 730 días.
+
 # Mi Gym 2.4
 
 - Se agrega nota orientativa del IMC de referencia entre 18,5 y 24,9 para adultos.

@@ -65,3 +65,11 @@
 
 .bmi-healthy-note{margin:4px 0 0;padding:11px 12px;background:var(--surface);border:1px solid var(--edge);border-radius:11px;color:var(--muted);font-size:12px;line-height:1.5}
 .bmi-healthy-note strong{color:var(--text)}
+
+/* Mi Gym 2.5: copia de entrenamientos, optimizada para pantallas chicas. */
+.history-copy-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.history-copy-actions .btn{width:100%;white-space:normal}
+.history-export{padding:12px;border-radius:12px;background:var(--surface-2);border:1px solid var(--edge)}
+.history-export summary{cursor:pointer;font-weight:650}
+.history-export textarea{margin-top:12px}
+@media(max-width:430px){.history-copy-actions{grid-template-columns:1fr}.modal footer{flex-wrap:wrap}.modal footer .btn{flex:1 1 140px}.list-item .btn{flex-shrink:0}}
